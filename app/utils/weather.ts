@@ -31,13 +31,14 @@ export class WeatherService {
     
     if (input.type === 'coordinates') {
       coordinates = input.coordinates!
-      // Try reverse geocoding for cache key, fallback to normalized coords
+      // Use coordinate-based cache key for faster lookups
+      cacheKey = `weather:${normalizeCoordinates(coordinates[0], coordinates[1])}`
+      
+      // Try reverse geocoding for display name, but don't block on it
       try {
         locationName = await reverseGeocode(coordinates[0], coordinates[1])
-        cacheKey = `weather:${locationName}`
       } catch {
         locationName = `${coordinates[0].toFixed(3)}, ${coordinates[1].toFixed(3)}`
-        cacheKey = `weather:${normalizeCoordinates(coordinates[0], coordinates[1])}`
       }
     } else {
       coordinates = await forwardGeocode(input.query!)
@@ -47,7 +48,13 @@ export class WeatherService {
     
     // Step 2: Check cache
     const cached = await this.getCachedWeather(cacheKey)
-    if (cached) return cached
+    if (cached) {
+      // Update location name if we have a better one from reverse geocoding
+      if (input.type === 'coordinates' && locationName !== `${coordinates[0].toFixed(3)}, ${coordinates[1].toFixed(3)}`) {
+        cached.location = locationName
+      }
+      return cached
+    }
     
     // Step 3: Fetch fresh data
     const weatherData = await this.fetchFreshWeather(coordinates, locationName)

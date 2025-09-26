@@ -163,6 +163,7 @@ const recentLocations = ref([]);
 const showLocationSuggestions = ref(false);
 const isLookingUpLocation = ref(false);
 const expandedAlerts = ref(new Set());
+const weatherCache = ref(new Map());
 
 // Function to display weather data
 function displayWeather(periods) {
@@ -386,57 +387,81 @@ async function getWeatherData(latitude, longitude) {
     loading.value = true;
     error.value = null;
     
-    const weatherData = await $fetch('/api/weather', {
-      method: 'POST',
-      body: {
-        type: 'coordinates',
-        coordinates: [latitude, longitude]
-      }
-    });
+    // Check client-side cache first
+    const cachedData = getCachedWeather(latitude, longitude);
+    if (cachedData) {
+      console.log('Using client-side cached weather data for instant display');
+      city.value = cachedData.location;
+      displayWeather(cachedData);
+      loading.value = false;
+      
+      // Still fetch fresh data in background for next time
+      fetchFreshWeatherData(latitude, longitude);
+      return;
+    }
     
-    // Update city name with the normalized location from the service
-    city.value = weatherData.location;
-    
-    // Save to localStorage using the coordinates from the weather data
-    saveLocationToStorage(weatherData.location, { 
-      lat: weatherData.coordinates[0], 
-      lng: weatherData.coordinates[1] 
-    });
-    
-    // Save current location to session storage
-    saveCurrentLocationToSession(weatherData.location, { 
-      lat: weatherData.coordinates[0], 
-      lng: weatherData.coordinates[1] 
-    });
-    
-    // Transform the weather data to match the expected format
-    const periods = weatherData.forecast.map((period, index) => ({
-      number: index + 1,
-      name: period.time, // Use the NWS period name (Today, Tonight, Tomorrow, etc.)
-      temperature: period.temperature,
-      temperatureUnit: period.temperatureUnit,
-      shortForecast: period.conditions,
-      detailedForecast: period.detailedForecast,
-      icon: period.icon, // Use the NWS icon directly
-      isDaytime: period.isDaytime,
-      windSpeed: period.windSpeed,
-      windDirection: period.windDirection,
-      probabilityOfPrecipitation: period.probabilityOfPrecipitation
-    }));
-    
-    // Create the complete weather data object with cache information
-    const completeWeatherData = {
-      ...periods,
-      alerts: weatherData.alerts || [], // Ensure alerts are included
-      _cache: weatherData._cache,
-      lastUpdated: weatherData.lastUpdated
-    };
-    
-    displayWeather(completeWeatherData);
+    // No cache, fetch fresh data
+    await fetchFreshWeatherData(latitude, longitude);
   } catch (err) {
     error.value = `Error loading weather: ${err.message}`;
     loading.value = false;
   }
+}
+
+// Separate function to fetch fresh weather data
+async function fetchFreshWeatherData(latitude, longitude) {
+  const weatherData = await $fetch('/api/weather', {
+    method: 'POST',
+    body: {
+      type: 'coordinates',
+      coordinates: [latitude, longitude]
+    }
+  });
+  
+  // Update city name with the normalized location from the service
+  city.value = weatherData.location;
+  
+  // Save to localStorage using the coordinates from the weather data
+  saveLocationToStorage(weatherData.location, { 
+    lat: weatherData.coordinates[0], 
+    lng: weatherData.coordinates[1] 
+  });
+  
+  // Save current location to session storage
+  saveCurrentLocationToSession(weatherData.location, { 
+    lat: weatherData.coordinates[0], 
+    lng: weatherData.coordinates[1] 
+  });
+  
+  // Transform the weather data to match the expected format
+  const periods = weatherData.forecast.map((period, index) => ({
+    number: index + 1,
+    name: period.time, // Use the NWS period name (Today, Tonight, Tomorrow, etc.)
+    temperature: period.temperature,
+    temperatureUnit: period.temperatureUnit,
+    shortForecast: period.conditions,
+    detailedForecast: period.detailedForecast,
+    icon: period.icon, // Use the NWS icon directly
+    isDaytime: period.isDaytime,
+    windSpeed: period.windSpeed,
+    windDirection: period.windDirection,
+    probabilityOfPrecipitation: period.probabilityOfPrecipitation
+  }));
+  
+  // Create the complete weather data object with cache information
+  const completeWeatherData = {
+    ...periods,
+    alerts: weatherData.alerts || [], // Ensure alerts are included
+    _cache: weatherData._cache,
+    lastUpdated: weatherData.lastUpdated,
+    location: weatherData.location,
+    coordinates: weatherData.coordinates
+  };
+  
+  // Cache the data for future use
+  setCachedWeather(latitude, longitude, completeWeatherData);
+  
+  displayWeather(completeWeatherData);
 }
 
 // Helper function to get weather icons based on conditions
@@ -633,6 +658,45 @@ function toggleAlert(alertId) {
 
 function isAlertExpanded(alertId) {
   return expandedAlerts.value.has(alertId);
+}
+
+// Client-side weather caching functions
+function getCacheKey(lat, lng) {
+  return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+}
+
+function getCachedWeather(lat, lng) {
+  const cacheKey = getCacheKey(lat, lng);
+  const cached = weatherCache.value.get(cacheKey);
+  
+  if (cached) {
+    const age = Date.now() - cached.timestamp;
+    const maxAge = 5 * 60 * 1000; // 5 minutes
+    
+    if (age < maxAge) {
+      console.log('Using client-side cached weather data');
+      return cached.data;
+    } else {
+      // Remove expired cache
+      weatherCache.value.delete(cacheKey);
+    }
+  }
+  
+  return null;
+}
+
+function setCachedWeather(lat, lng, data) {
+  const cacheKey = getCacheKey(lat, lng);
+  weatherCache.value.set(cacheKey, {
+    data: data,
+    timestamp: Date.now()
+  });
+  
+  // Limit cache size to 10 locations
+  if (weatherCache.value.size > 10) {
+    const firstKey = weatherCache.value.keys().next().value;
+    weatherCache.value.delete(firstKey);
+  }
 }
 
 
