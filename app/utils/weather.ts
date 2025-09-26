@@ -1,11 +1,27 @@
-import { kv } from '@vercel/kv'
+import { Redis } from '@upstash/redis'
 import { NWSClient } from './nws'
 import { forwardGeocode, reverseGeocode, normalizeCoordinates } from './geocoding'
 import type { WeatherData, LocationInput } from '~/types/weather'
 
 export class WeatherService {
   private nws = new NWSClient()
-  private cacheTimeout = 1800 // 30 minutes
+  private cacheTimeout = 900 // 15 minutes
+  private redis: Redis | null = null
+  
+  constructor() {
+    // Initialize Redis only if environment variables are available
+    if (process.env.NUXT_UPSTASH_REDIS_REST_URL && process.env.NUXT_UPSTASH_REDIS_REST_TOKEN) {
+      try {
+        this.redis = new Redis({
+          url: process.env.NUXT_UPSTASH_REDIS_REST_URL,
+          token: process.env.NUXT_UPSTASH_REDIS_REST_TOKEN,
+        })
+      } catch (error) {
+        console.error('Failed to initialize Redis client:', error)
+        this.redis = null
+      }
+    }
+  }
   
   async getWeather(input: LocationInput): Promise<WeatherData> {
     // Step 1: Normalize input to coordinates and location name
@@ -44,22 +60,30 @@ export class WeatherService {
   
   private async getCachedWeather(cacheKey: string): Promise<WeatherData | null> {
     try {
-      // Check if KV is configured
-      if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-        console.log('Vercel KV not configured, skipping cache')
+      // Check if Upstash Redis is configured
+      if (!this.redis) {
+        console.log('Upstash Redis not configured, skipping cache')
         return null
       }
       
-      const cached = await kv.get<WeatherData>(cacheKey)
+      const cached = await this.redis.get<WeatherData>(cacheKey)
       if (!cached) return null
       
       const age = Date.now() - new Date(cached.lastUpdated).getTime()
       if (age > this.cacheTimeout * 1000) {
-        await kv.del(cacheKey) // Clean up stale data
+        await this.redis.del(cacheKey) // Clean up stale data
         return null
       }
       
-      return cached
+      // Add cache metadata
+      return {
+        ...cached,
+        _cache: {
+          isCached: true,
+          cacheAge: Math.round(age / 1000), // age in seconds
+          cacheKey
+        }
+      }
     } catch (error) {
       console.error('Cache read error:', error)
       return null
@@ -118,7 +142,12 @@ export class WeatherService {
         humidity: currentData?.properties?.relativeHumidity?.value || 0
       },
       forecast: dailyForecasts, // Show all available forecast periods
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      _cache: {
+        isCached: false,
+        cacheAge: 0,
+        cacheKey: null
+      }
     }
   }
   
@@ -141,13 +170,13 @@ export class WeatherService {
   
   private async cacheWeather(cacheKey: string, data: WeatherData): Promise<void> {
     try {
-      // Check if KV is configured
-      if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-        console.log('Vercel KV not configured, skipping cache write')
+      // Check if Upstash Redis is configured
+      if (!this.redis) {
+        console.log('Upstash Redis not configured, skipping cache write')
         return
       }
       
-      await kv.setex(cacheKey, this.cacheTimeout, JSON.stringify(data))
+      await this.redis.setex(cacheKey, this.cacheTimeout, JSON.stringify(data))
     } catch (error) {
       console.error('Cache write error:', error)
       // Don't throw - weather data is more important than caching

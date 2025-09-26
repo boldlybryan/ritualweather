@@ -15,9 +15,25 @@ export default defineEventHandler(async (event) => {
       })
     }
     
+    const startTime = Date.now()
     const weatherData = await weatherService.getWeather(body)
-    console.log('Weather API response:', { location: weatherData.location, forecastCount: weatherData.forecast.length })
-    return weatherData
+    const endTime = Date.now()
+    
+    console.log('Weather API response:', { 
+      location: weatherData.location, 
+      forecastCount: weatherData.forecast.length,
+      responseTime: `${endTime - startTime}ms`
+    })
+    
+    // Add performance information to response while preserving weather service cache info
+    return {
+      ...weatherData,
+      _cache: {
+        ...weatherData._cache,
+        responseTime: `${endTime - startTime}ms`,
+        timestamp: new Date().toISOString()
+      }
+    }
     
   } catch (error) {
     console.error('Weather API error:', error)

@@ -20,6 +20,11 @@ export interface WeatherData {
     probabilityOfPrecipitation: number
   }>
   lastUpdated: string
+  _cache?: {
+    isCached: boolean
+    cacheAge: number
+    cacheKey: string | null
+  }
 }
 
 export interface NWSPointsResponse {

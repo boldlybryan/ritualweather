@@ -1,14 +1,41 @@
 # Weather Service Setup
 
-## Environment Configuration
+## Caching Options
 
-Create a `.env` file in your project root with the following variables:
+The weather service supports caching but works without it. Here are your options:
+
+### Option 1: No Caching (Default)
+The app works perfectly without any caching setup. Weather data is fetched fresh from NWS API on each request.
+
+### Option 2: Vercel Edge Config (Recommended)
+For ultra-fast global caching, use Vercel Edge Config:
+
+1. Go to your Vercel project dashboard
+2. Navigate to **Storage** → **Edge Config**
+3. Create a new Edge Config store
+4. Use the Edge Config SDK for caching
+
+### Option 3: Upstash Redis (Recommended for Caching)
+For fast Redis caching with Upstash:
+
+1. **Create Upstash account** at [console.upstash.com](https://console.upstash.com)
+2. **Create a new database**:
+   - Name: `ritualweather-cache`
+   - Region: Choose closest to your users
+   - Plan: Start with Free (10,000 requests/day)
+3. **Get your credentials** from the database dashboard
+4. **Set up environment variables**:
 
 ```bash
-# Vercel KV Configuration
-KV_REST_API_URL=your_vercel_kv_url
-KV_REST_API_TOKEN=your_vercel_kv_token
+# Upstash Redis Configuration
+UPSTASH_REDIS_REST_URL=https://your-db-name.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_upstash_token_here
 ```
+
+5. **Test the connection**:
+   ```bash
+   curl http://localhost:3000/api/test-kv
+   ```
 
 ## Usage Examples
 

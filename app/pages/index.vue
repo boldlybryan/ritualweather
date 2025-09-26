@@ -45,6 +45,31 @@
     
     <!-- Weather data -->
     <div v-if="weatherData && !loading" class="mt-6">
+      <!-- Cache status indicator -->
+      <div v-if="weatherData._cache" class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div :class="weatherData._cache.isCached ? 'text-green-600' : 'text-blue-600'" class="flex items-center">
+              <svg v-if="weatherData._cache.isCached" class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8z" clip-rule="evenodd"></path>
+              </svg>
+              <svg v-else class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+              </svg>
+              <span class="text-sm font-medium">
+                {{ weatherData._cache.isCached ? 'Cached Data' : 'Fresh Data' }}
+              </span>
+            </div>
+            <span class="text-xs text-gray-500">
+              {{ weatherData._cache.isCached ? `Updated ${formatCacheAge(weatherData._cache.cacheAge)} ago` : 'Just fetched' }}
+            </span>
+          </div>
+          <div class="text-xs text-gray-500">
+            Last updated: {{ formatLastUpdated(weatherData.lastUpdated) }}
+          </div>
+        </div>
+      </div>
+      
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div v-for="period in weatherData" :key="period.number" 
              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -212,7 +237,14 @@ async function updateLocation() {
       probabilityOfPrecipitation: period.probabilityOfPrecipitation
     }));
     
-    displayWeather(periods);
+    // Create the complete weather data object with cache information
+    const completeWeatherData = {
+      ...periods,
+      _cache: weatherData._cache,
+      lastUpdated: weatherData.lastUpdated
+    };
+    
+    displayWeather(completeWeatherData);
     
   } catch (err) {
     error.value = `Error finding location: ${err.message}`;
@@ -263,7 +295,14 @@ async function getWeatherData(latitude, longitude) {
       probabilityOfPrecipitation: period.probabilityOfPrecipitation
     }));
     
-    displayWeather(periods);
+    // Create the complete weather data object with cache information
+    const completeWeatherData = {
+      ...periods,
+      _cache: weatherData._cache,
+      lastUpdated: weatherData.lastUpdated
+    };
+    
+    displayWeather(completeWeatherData);
   } catch (err) {
     error.value = `Error loading weather: ${err.message}`;
     loading.value = false;
@@ -357,5 +396,30 @@ async function getVisitorLocation() {
         return null;
     }
 }
+
+// Helper functions for cache display
+function formatCacheAge(seconds) {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}m`;
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    return `${hours}h`;
+  }
+}
+
+function formatLastUpdated(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 
 </script>
