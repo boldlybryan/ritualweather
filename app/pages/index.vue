@@ -126,6 +126,44 @@
         </div>
       </div>
       
+      <!-- Current Conditions Card -->
+      <div v-if="weatherData.current" class="mb-6">
+        <h2 class="text-xl font-semibold mb-3">Current Conditions</h2>
+        <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="text-center">
+              <div class="text-3xl font-bold text-blue-600">{{ weatherData.current.temperature }}°F</div>
+              <div class="text-sm text-gray-600">Temperature</div>
+            </div>
+            <div v-if="weatherData.current.feelsLike" class="text-center">
+              <div class="text-2xl font-semibold text-orange-600">{{ weatherData.current.feelsLike }}°F</div>
+              <div class="text-sm text-gray-600">Feels Like</div>
+            </div>
+            <div v-if="weatherData.current.humidity" class="text-center">
+              <div class="text-2xl font-semibold text-green-600">{{ weatherData.current.humidity }}%</div>
+              <div class="text-sm text-gray-600">Humidity</div>
+            </div>
+            <div v-if="weatherData.current.dewPoint" class="text-center">
+              <div class="text-2xl font-semibold text-purple-600">{{ weatherData.current.dewPoint }}°F</div>
+              <div class="text-sm text-gray-600">Dew Point</div>
+            </div>
+          </div>
+          <div v-if="weatherData.current.pressure || weatherData.current.visibility || weatherData.current.windGust" class="mt-4 pt-4 border-t border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div v-if="weatherData.current.pressure" class="text-center">
+                <span class="font-medium">Pressure:</span> {{ weatherData.current.pressure }} mb
+              </div>
+              <div v-if="weatherData.current.visibility" class="text-center">
+                <span class="font-medium">Visibility:</span> {{ weatherData.current.visibility }} mi
+              </div>
+              <div v-if="weatherData.current.windGust" class="text-center">
+                <span class="font-medium">Wind Gust:</span> {{ weatherData.current.windGust }} mph
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div v-for="period in weatherData.forecast" :key="period.number" 
              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -135,13 +173,34 @@
             <div>
               <p class="text-2xl font-bold">{{ period.temperature }}{{ period.temperatureUnit }}</p>
               <p class="text-sm text-gray-600">{{ period.shortForecast }}</p>
+              <p v-if="period.feelsLike && period.feelsLike !== period.temperature" class="text-xs text-orange-600">
+                Feels like {{ period.feelsLike }}°F
+              </p>
             </div>
           </div>
           <p class="text-sm text-gray-700 mb-2">{{ period.detailedForecast }}</p>
+          
+          
           <div class="text-xs text-gray-500 space-y-1">
             <p><strong>Wind:</strong> {{ period.windSpeed }} {{ period.windDirection }}</p>
+            <p v-if="period.windGust"><strong>Wind Gust:</strong> {{ period.windGust }}</p>
             <p><strong>Precipitation:</strong> {{ period.probabilityOfPrecipitation }}%</p>
+            <p v-if="period.relativeHumidity"><strong>Humidity:</strong> {{ period.relativeHumidity }}%</p>
+            <p v-if="period.dewPoint"><strong>Dew Point:</strong> {{ period.dewPoint }}°F</p>
             <p><strong>Time:</strong> {{ period.isDaytime ? 'Day' : 'Night' }}</p>
+          </div>
+          
+          <!-- Expandable Details -->
+          <div v-if="period.barometricPressure || period.visibility || period.skyCover" class="mt-3 pt-2 border-t border-gray-100">
+            <button @click="togglePeriodDetails(period.number)" 
+                    class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+              {{ expandedPeriods.has(period.number) ? 'Hide Details' : 'Show Details' }}
+            </button>
+            <div v-if="expandedPeriods.has(period.number)" class="mt-2 text-xs text-gray-500 space-y-1">
+              <p v-if="period.barometricPressure"><strong>Pressure:</strong> {{ period.barometricPressure }} mb</p>
+              <p v-if="period.visibility"><strong>Visibility:</strong> {{ period.visibility }} mi</p>
+              <p v-if="period.skyCover"><strong>Sky Cover:</strong> {{ period.skyCover }}%</p>
+            </div>
           </div>
         </div>
       </div>
@@ -163,6 +222,7 @@ const recentLocations = ref([]);
 const showLocationSuggestions = ref(false);
 const isLookingUpLocation = ref(false);
 const expandedAlerts = ref(new Set());
+const expandedPeriods = ref(new Set());
 const weatherCache = ref(new Map());
 
 // Function to display weather data
@@ -357,12 +417,23 @@ async function updateLocation() {
       isDaytime: period.isDaytime,
       windSpeed: period.windSpeed,
       windDirection: period.windDirection,
-      probabilityOfPrecipitation: period.probabilityOfPrecipitation
+      probabilityOfPrecipitation: period.probabilityOfPrecipitation,
+      // Include all the new enhanced fields
+      relativeHumidity: period.relativeHumidity,
+      dewPoint: period.dewPoint,
+      windGust: period.windGust,
+      heatIndex: period.heatIndex,
+      windChill: period.windChill,
+      feelsLike: period.feelsLike,
+      barometricPressure: period.barometricPressure,
+      visibility: period.visibility,
+      skyCover: period.skyCover
     }));
     
     // Create the complete weather data object with cache information
     const completeWeatherData = {
       forecast: periods, // Keep periods as an array in the forecast property
+      current: weatherData.current, // Include current conditions
       alerts: weatherData.alerts || [], // Ensure alerts are included
       _cache: weatherData._cache,
       lastUpdated: weatherData.lastUpdated
@@ -445,12 +516,23 @@ async function fetchFreshWeatherData(latitude, longitude) {
     isDaytime: period.isDaytime,
     windSpeed: period.windSpeed,
     windDirection: period.windDirection,
-    probabilityOfPrecipitation: period.probabilityOfPrecipitation
+    probabilityOfPrecipitation: period.probabilityOfPrecipitation,
+    // Include all the new enhanced fields
+    relativeHumidity: period.relativeHumidity,
+    dewPoint: period.dewPoint,
+    windGust: period.windGust,
+    heatIndex: period.heatIndex,
+    windChill: period.windChill,
+    feelsLike: period.feelsLike,
+    barometricPressure: period.barometricPressure,
+    visibility: period.visibility,
+    skyCover: period.skyCover
   }));
   
   // Create the complete weather data object with cache information
   const completeWeatherData = {
     forecast: periods, // Keep periods as an array in the forecast property
+    current: weatherData.current, // Include current conditions
     alerts: weatherData.alerts || [], // Ensure alerts are included
     _cache: weatherData._cache,
     lastUpdated: weatherData.lastUpdated,
@@ -659,6 +741,16 @@ function toggleAlert(alertId) {
 function isAlertExpanded(alertId) {
   return expandedAlerts.value.has(alertId);
 }
+
+// Period details toggle functions
+function togglePeriodDetails(periodNumber) {
+  if (expandedPeriods.value.has(periodNumber)) {
+    expandedPeriods.value.delete(periodNumber);
+  } else {
+    expandedPeriods.value.add(periodNumber);
+  }
+}
+
 
 // Client-side weather caching functions
 function getCacheKey(lat, lng) {

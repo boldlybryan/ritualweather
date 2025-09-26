@@ -143,6 +143,23 @@ export class WeatherService {
     } else if (periods[0]?.temperature) {
       currentTemp = periods[0].temperature
     }
+
+    // Extract additional current conditions data
+    const currentHumidity = currentData?.properties?.relativeHumidity?.value || 0
+    const currentDewPoint = currentData?.properties?.dewpoint?.value
+    const currentPressure = currentData?.properties?.barometricPressure?.value
+    const currentVisibility = currentData?.properties?.visibility?.value
+    const currentWindGust = currentData?.properties?.windGust?.value
+    const currentHeatIndex = currentData?.properties?.heatIndex?.value
+    const currentWindChill = currentData?.properties?.windChill?.value
+
+    // Calculate "feels like" temperature
+    let feelsLike = currentTemp
+    if (currentHeatIndex && currentTemp > 80) {
+      feelsLike = currentHeatIndex
+    } else if (currentWindChill && currentTemp < 50) {
+      feelsLike = currentWindChill
+    }
     
     return {
       location: locationName,
@@ -150,7 +167,14 @@ export class WeatherService {
       current: {
         temperature: Math.round(currentTemp),
         conditions: currentData?.properties?.textDescription || periods[0]?.shortForecast || 'Unknown',
-        humidity: currentData?.properties?.relativeHumidity?.value || 0
+        humidity: currentHumidity,
+        dewPoint: currentDewPoint ? Math.round(currentDewPoint) : undefined,
+        pressure: currentPressure ? Math.round(currentPressure) : undefined,
+        visibility: currentVisibility ? Math.round(currentVisibility) : undefined,
+        windGust: currentWindGust ? Math.round(currentWindGust) : undefined,
+        heatIndex: currentHeatIndex ? Math.round(currentHeatIndex) : undefined,
+        windChill: currentWindChill ? Math.round(currentWindChill) : undefined,
+        feelsLike: Math.round(feelsLike)
       },
       forecast: dailyForecasts, // Show all available forecast periods
       alerts: alerts || [],
@@ -163,21 +187,52 @@ export class WeatherService {
     }
   }
   
+
   private combineDayNightPeriods(periods: any[]): any[] {
     // Return all available day and night periods for validation
-    return periods.map((period: any) => ({
-      date: period.startTime.split('T')[0],
-      time: period.name, // "Today", "Tonight", "Tomorrow", etc.
-      temperature: period.temperature,
-      temperatureUnit: period.temperatureUnit,
-      conditions: period.shortForecast,
-      isDaytime: period.isDaytime,
-      detailedForecast: period.detailedForecast,
-      windSpeed: period.windSpeed,
-      windDirection: period.windDirection,
-      icon: period.icon,
-      probabilityOfPrecipitation: period.probabilityOfPrecipitation?.value || 0
-    }))
+    return periods.map((period: any) => {
+      // Extract additional forecast data
+      const relativeHumidity = period.relativeHumidity?.value
+      const dewPoint = period.dewpoint?.value
+      const windGust = period.windGust?.value
+      const heatIndex = period.heatIndex?.value
+      const windChill = period.windChill?.value
+      const barometricPressure = period.barometricPressure?.value
+      const visibility = period.visibility?.value
+      const skyCover = period.skyCover
+
+      // Calculate "feels like" temperature
+      let feelsLike = period.temperature
+      if (heatIndex && period.temperature > 80) {
+        feelsLike = heatIndex
+      } else if (windChill && period.temperature < 50) {
+        feelsLike = windChill
+      }
+
+
+      return {
+        date: period.startTime.split('T')[0],
+        time: period.name, // "Today", "Tonight", "Tomorrow", etc.
+        temperature: period.temperature,
+        temperatureUnit: period.temperatureUnit,
+        conditions: period.shortForecast,
+        isDaytime: period.isDaytime,
+        detailedForecast: period.detailedForecast,
+        windSpeed: period.windSpeed,
+        windDirection: period.windDirection,
+        icon: period.icon,
+        probabilityOfPrecipitation: period.probabilityOfPrecipitation?.value || 0,
+        relativeHumidity: relativeHumidity ? Math.round(relativeHumidity) : undefined,
+        dewPoint: dewPoint ? Math.round(dewPoint) : undefined,
+        windGust: windGust ? `${Math.round(windGust)} mph` : undefined,
+        heatIndex: heatIndex ? Math.round(heatIndex) : undefined,
+        windChill: windChill ? Math.round(windChill) : undefined,
+        feelsLike: Math.round(feelsLike),
+        barometricPressure: barometricPressure ? Math.round(barometricPressure) : undefined,
+        visibility: visibility ? Math.round(visibility) : undefined,
+        skyCover: skyCover ? Math.round(skyCover) : undefined
+      }
+    })
   }
   
   private async cacheWeather(cacheKey: string, data: WeatherData): Promise<void> {

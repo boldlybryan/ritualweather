@@ -5,6 +5,13 @@ export interface WeatherData {
     temperature: number
     conditions: string
     humidity: number
+    dewPoint?: number
+    pressure?: number
+    visibility?: number
+    windGust?: number
+    heatIndex?: number
+    windChill?: number
+    feelsLike?: number
   }
   forecast: Array<{
     date: string
@@ -18,6 +25,15 @@ export interface WeatherData {
     windDirection: string
     icon: string
     probabilityOfPrecipitation: number
+    relativeHumidity?: number
+    dewPoint?: number
+    windGust?: string
+    heatIndex?: number
+    windChill?: number
+    feelsLike?: number
+    barometricPressure?: number
+    visibility?: number
+    skyCover?: number
   }>
   alerts: WeatherAlert[]
   lastUpdated: string
