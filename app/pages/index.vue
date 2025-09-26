@@ -164,6 +164,30 @@
         </div>
       </div>
       
+      <!-- Hourly Forecast Section -->
+      <div v-if="weatherData.hourlyForecast && weatherData.hourlyForecast.length > 0" class="mb-6">
+        <h2 class="text-xl font-semibold mb-3">24-Hour Forecast</h2>
+        
+        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+          <div class="overflow-x-auto">
+            <div class="flex space-x-4 min-w-max">
+              <div v-for="hour in weatherData.hourlyForecast" :key="hour.time" 
+                   class="flex-shrink-0 text-center p-3 border border-gray-100 rounded-lg min-w-24">
+                <div class="text-sm font-medium text-gray-600 mb-1">{{ hour.time }}</div>
+                <img :src="hour.icon" :alt="hour.conditions" class="w-8 h-8 mx-auto mb-2">
+                <div class="text-lg font-bold">{{ hour.temperature }}°</div>
+                <div class="text-xs text-gray-500 mb-1">{{ hour.conditions }}</div>
+                <div class="text-xs text-blue-600">{{ hour.probabilityOfPrecipitation }}%</div>
+                <div v-if="hour.feelsLike && hour.feelsLike !== hour.temperature" 
+                     class="text-xs text-orange-600 mt-1">
+                  Feels {{ hour.feelsLike }}°
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div v-for="period in weatherData.forecast" :key="period.number" 
              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -434,6 +458,7 @@ async function updateLocation() {
     const completeWeatherData = {
       forecast: periods, // Keep periods as an array in the forecast property
       current: weatherData.current, // Include current conditions
+      hourlyForecast: weatherData.hourlyForecast, // Include hourly forecast
       alerts: weatherData.alerts || [], // Ensure alerts are included
       _cache: weatherData._cache,
       lastUpdated: weatherData.lastUpdated
@@ -533,6 +558,7 @@ async function fetchFreshWeatherData(latitude, longitude) {
   const completeWeatherData = {
     forecast: periods, // Keep periods as an array in the forecast property
     current: weatherData.current, // Include current conditions
+    hourlyForecast: weatherData.hourlyForecast, // Include hourly forecast
     alerts: weatherData.alerts || [], // Ensure alerts are included
     _cache: weatherData._cache,
     lastUpdated: weatherData.lastUpdated,
@@ -750,6 +776,7 @@ function togglePeriodDetails(periodNumber) {
     expandedPeriods.value.add(periodNumber);
   }
 }
+
 
 
 // Client-side weather caching functions

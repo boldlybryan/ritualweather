@@ -106,18 +106,23 @@ export class WeatherService {
     // Get NWS point data
     const pointData = await this.nws.getPointData(lat, lon)
     
-    // Fetch forecast, current conditions, and alerts in parallel
-    const [forecastData, currentData, alerts] = await Promise.all([
+    // Fetch forecast, hourly forecast, current conditions, and alerts in parallel
+    const [forecastData, hourlyForecastData, currentData, alerts] = await Promise.all([
       this.nws.getForecast(pointData.properties.forecast),
+      this.nws.getHourlyForecast(pointData.properties.forecastHourly).catch((error) => {
+        console.error('Hourly forecast API error:', error)
+        return null
+      }),
       this.nws.getCurrentConditions(lat, lon).catch(() => null),
       this.nws.getAlerts(lat, lon)
     ])
     
+    
     // Transform NWS data to our format
-    return this.transformNWSData(forecastData, currentData, alerts, coordinates, locationName)
+    return this.transformNWSData(forecastData, hourlyForecastData, currentData, alerts, coordinates, locationName)
   }
   
-  private transformNWSData(forecastData: any, currentData: any, alerts: any[], coordinates: [number, number], locationName: string): WeatherData {
+  private transformNWSData(forecastData: any, hourlyForecastData: any, currentData: any, alerts: any[], coordinates: [number, number], locationName: string): WeatherData {
     // Add safety checks for the forecast data structure
     if (!forecastData || !forecastData.properties || !forecastData.properties.periods) {
       throw new Error('Invalid forecast data received from NWS API')
@@ -131,6 +136,9 @@ export class WeatherService {
     
     // Group periods by date and combine day/night data
     const dailyForecasts = this.combineDayNightPeriods(periods)
+    
+    // Process hourly forecast data if available
+    const hourlyForecasts = hourlyForecastData ? this.processHourlyForecast(hourlyForecastData) : undefined
     
     // Get current temperature - convert from Celsius to Fahrenheit if needed
     let currentTemp = 0
@@ -177,6 +185,7 @@ export class WeatherService {
         feelsLike: Math.round(feelsLike)
       },
       forecast: dailyForecasts, // Show all available forecast periods
+      hourlyForecast: hourlyForecasts, // Show hourly forecast if available
       alerts: alerts || [],
       lastUpdated: new Date().toISOString(),
       _cache: {
@@ -187,6 +196,62 @@ export class WeatherService {
     }
   }
   
+
+  private processHourlyForecast(hourlyForecastData: any): any[] {
+    if (!hourlyForecastData?.properties?.periods || !Array.isArray(hourlyForecastData.properties.periods)) {
+      return []
+    }
+    
+    const hourlyPeriods = hourlyForecastData.properties.periods
+    
+    // Limit to next 24 hours for better performance and relevance
+    const next24Hours = hourlyPeriods.slice(0, 24)
+    
+    return next24Hours.map((period: any) => {
+      // Extract additional hourly forecast data
+      const relativeHumidity = period.relativeHumidity?.value
+      const dewPoint = period.dewpoint?.value
+      const windGust = period.windGust?.value
+      const heatIndex = period.heatIndex?.value
+      const windChill = period.windChill?.value
+      const barometricPressure = period.barometricPressure?.value
+      const visibility = period.visibility?.value
+      const skyCover = period.skyCover
+
+      // Calculate "feels like" temperature
+      let feelsLike = period.temperature
+      if (heatIndex && period.temperature > 80) {
+        feelsLike = heatIndex
+      } else if (windChill && period.temperature < 50) {
+        feelsLike = windChill
+      }
+
+      return {
+        time: new Date(period.startTime).toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        }),
+        temperature: period.temperature,
+        temperatureUnit: period.temperatureUnit,
+        conditions: period.shortForecast,
+        isDaytime: period.isDaytime,
+        windSpeed: period.windSpeed,
+        windDirection: period.windDirection,
+        icon: period.icon,
+        probabilityOfPrecipitation: period.probabilityOfPrecipitation?.value || 0,
+        relativeHumidity: relativeHumidity ? Math.round(relativeHumidity) : undefined,
+        dewPoint: dewPoint ? Math.round(dewPoint) : undefined,
+        windGust: windGust ? `${Math.round(windGust)} mph` : undefined,
+        heatIndex: heatIndex ? Math.round(heatIndex) : undefined,
+        windChill: windChill ? Math.round(windChill) : undefined,
+        feelsLike: Math.round(feelsLike),
+        barometricPressure: barometricPressure ? Math.round(barometricPressure) : undefined,
+        visibility: visibility ? Math.round(visibility) : undefined,
+        skyCover: skyCover ? Math.round(skyCover) : undefined
+      }
+    })
+  }
 
   private combineDayNightPeriods(periods: any[]): any[] {
     // Return all available day and night periods for validation

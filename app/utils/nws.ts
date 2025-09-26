@@ -44,6 +44,27 @@ export class NWSClient {
     
     return data
   }
+
+  async getHourlyForecast(hourlyForecastUrl: string) {
+    const response = await fetch(hourlyForecastUrl, {
+      headers: {
+        'User-Agent': 'RitualWeather/1.0 (contact@ritualweather.com)'
+      }
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`NWS hourly forecast error: ${response.status} - ${errorText}`)
+    }
+    
+    const data = await response.json()
+    
+    if (!data || !data.properties) {
+      throw new Error('Invalid response from NWS hourly forecast API')
+    }
+    
+    return data
+  }
   
   async getCurrentConditions(lat: number, lon: number) {
     // Get nearest observation station

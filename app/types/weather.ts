@@ -35,6 +35,26 @@ export interface WeatherData {
     visibility?: number
     skyCover?: number
   }>
+  hourlyForecast?: Array<{
+    time: string
+    temperature: number
+    temperatureUnit: string
+    conditions: string
+    isDaytime: boolean
+    windSpeed: string
+    windDirection: string
+    icon: string
+    probabilityOfPrecipitation: number
+    relativeHumidity?: number
+    dewPoint?: number
+    windGust?: string
+    heatIndex?: number
+    windChill?: number
+    feelsLike?: number
+    barometricPressure?: number
+    visibility?: number
+    skyCover?: number
+  }>
   alerts: WeatherAlert[]
   lastUpdated: string
   _cache?: {
