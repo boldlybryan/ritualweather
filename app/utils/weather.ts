@@ -27,40 +27,43 @@ export class WeatherService {
     // Step 1: Normalize input to coordinates and location name
     let coordinates: [number, number]
     let locationName: string
-    let cacheKey: string
     
     if (input.type === 'coordinates') {
       coordinates = input.coordinates!
-      // Use coordinate-based cache key for faster lookups
-      cacheKey = `weather:${normalizeCoordinates(coordinates[0], coordinates[1])}`
       
-      // Try reverse geocoding for display name, but don't block on it
+      // Always reverse geocode coordinates to get location name for caching
       try {
         locationName = await reverseGeocode(coordinates[0], coordinates[1])
       } catch {
+        // If reverse geocoding fails, don't cache - return coordinates as fallback
         locationName = `${coordinates[0].toFixed(3)}, ${coordinates[1].toFixed(3)}`
       }
     } else {
       coordinates = await forwardGeocode(input.query!)
       locationName = input.query!
-      cacheKey = `weather:${locationName.toLowerCase().trim()}`
     }
     
-    // Step 2: Check cache
-    const cached = await this.getCachedWeather(cacheKey)
-    if (cached) {
-      // Update location name if we have a better one from reverse geocoding
-      if (input.type === 'coordinates' && locationName !== `${coordinates[0].toFixed(3)}, ${coordinates[1].toFixed(3)}`) {
-        cached.location = locationName
+    // Always use location name as cache key - never cache raw coordinates
+    // This ensures meaningful, reusable cache entries
+    const cacheKey = `weather:${locationName.toLowerCase().trim()}`
+    
+    // Step 2: Check cache (only if we have a meaningful location name)
+    const shouldCache = !locationName.includes(',') || locationName !== `${coordinates[0].toFixed(3)}, ${coordinates[1].toFixed(3)}`
+    
+    if (shouldCache) {
+      const cached = await this.getCachedWeather(cacheKey)
+      if (cached) {
+        return cached
       }
-      return cached
     }
     
     // Step 3: Fetch fresh data
     const weatherData = await this.fetchFreshWeather(coordinates, locationName)
     
-    // Step 4: Cache the result
-    await this.cacheWeather(cacheKey, weatherData)
+    // Step 4: Cache the result (only if we have a meaningful location name)
+    if (shouldCache) {
+      await this.cacheWeather(cacheKey, weatherData)
+    }
     
     return weatherData
   }
