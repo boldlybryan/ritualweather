@@ -83,39 +83,11 @@ export class NWSClient {
       
       let data = await response.json()
       
-      // If no alerts found for exact point, try broader area search
+      // If no alerts found for exact point, return empty array
+      // We don't want to show irrelevant alerts from other areas
       if (!data || !data.features || data.features.length === 0) {
-        console.log('No alerts found for exact point, trying broader area search...')
-        
-        // Try searching for alerts in a broader area (state-level)
-        response = await fetch(`${this.baseUrl}/alerts?active=true&limit=50`, {
-          headers: {
-            'User-Agent': 'RitualWeather/1.0 (contact@ritualweather.com)'
-          }
-        })
-        
-        if (!response.ok) {
-          console.warn(`NWS alerts API error (broader search): ${response.status}`)
-          return []
-        }
-        
-        data = await response.json()
-        
-        if (!data || !data.features || !Array.isArray(data.features)) {
-          return []
-        }
-        
-        // Filter alerts that might be relevant to the user's area
-        // This is a simple approach - in a production app you might want more sophisticated geographic filtering
-        const relevantAlerts = data.features.filter((feature: any) => {
-          const severity = feature.properties?.severity?.toLowerCase()
-          // Include moderate, severe, and extreme alerts regardless of exact location
-          // Also include any alerts that mention the user's state/region
-          return severity === 'moderate' || severity === 'severe' || severity === 'extreme' || 
-                 feature.properties?.status === 'Actual' // Only actual alerts, not test messages
-        })
-        
-        data.features = relevantAlerts.slice(0, 5) // Limit to 5 most relevant alerts
+        console.log('No alerts found for this location')
+        return []
       }
       
       if (!data || !data.features || !Array.isArray(data.features)) {
