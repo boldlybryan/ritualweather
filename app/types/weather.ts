@@ -19,12 +19,29 @@ export interface WeatherData {
     icon: string
     probabilityOfPrecipitation: number
   }>
+  alerts: WeatherAlert[]
   lastUpdated: string
   _cache?: {
     isCached: boolean
     cacheAge: number
     cacheKey: string | null
   }
+}
+
+export interface WeatherAlert {
+  id: string
+  event: string
+  headline: string
+  description: string
+  instruction: string
+  severity: string
+  urgency: string
+  areas: string[]
+  effective: string
+  expires: string
+  status: string
+  messageType: string
+  category: string
 }
 
 export interface NWSPointsResponse {

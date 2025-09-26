@@ -96,17 +96,18 @@ export class WeatherService {
     // Get NWS point data
     const pointData = await this.nws.getPointData(lat, lon)
     
-    // Fetch forecast and current conditions in parallel
-    const [forecastData, currentData] = await Promise.all([
+    // Fetch forecast, current conditions, and alerts in parallel
+    const [forecastData, currentData, alerts] = await Promise.all([
       this.nws.getForecast(pointData.properties.forecast),
-      this.nws.getCurrentConditions(lat, lon).catch(() => null)
+      this.nws.getCurrentConditions(lat, lon).catch(() => null),
+      this.nws.getAlerts(lat, lon)
     ])
     
     // Transform NWS data to our format
-    return this.transformNWSData(forecastData, currentData, coordinates, locationName)
+    return this.transformNWSData(forecastData, currentData, alerts, coordinates, locationName)
   }
   
-  private transformNWSData(forecastData: any, currentData: any, coordinates: [number, number], locationName: string): WeatherData {
+  private transformNWSData(forecastData: any, currentData: any, alerts: any[], coordinates: [number, number], locationName: string): WeatherData {
     // Add safety checks for the forecast data structure
     if (!forecastData || !forecastData.properties || !forecastData.properties.periods) {
       throw new Error('Invalid forecast data received from NWS API')
@@ -142,6 +143,7 @@ export class WeatherService {
         humidity: currentData?.properties?.relativeHumidity?.value || 0
       },
       forecast: dailyForecasts, // Show all available forecast periods
+      alerts: alerts || [],
       lastUpdated: new Date().toISOString(),
       _cache: {
         isCached: false,

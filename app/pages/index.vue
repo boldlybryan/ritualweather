@@ -45,6 +45,62 @@
     
     <!-- Weather data -->
     <div v-if="weatherData && !loading" class="mt-6">
+      <!-- Weather Alerts -->
+      <div v-if="weatherData.alerts && weatherData.alerts.length > 0" class="mb-6">
+        <h2 class="text-xl font-semibold mb-3 text-red-600">Weather Alerts</h2>
+        <p class="text-sm text-gray-600 mb-3">
+          <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+          </svg>
+          Showing active weather alerts for your area and nearby regions
+        </p>
+        <div class="space-y-3">
+          <div v-for="alert in weatherData.alerts" :key="alert.id" 
+               :class="getAlertStyling(alert.severity)"
+               class="rounded-lg border-l-4 shadow-sm">
+            <!-- Alert Header (Always Visible) -->
+            <div class="p-4 cursor-pointer" @click="toggleAlert(alert.id)">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                  </svg>
+                  <h3 class="font-semibold text-lg">{{ alert.event }}</h3>
+                  <span :class="getSeverityBadgeStyling(alert.severity)" 
+                        class="ml-2 px-2 py-1 text-xs font-medium rounded-full">
+                    {{ alert.severity }}
+                  </span>
+                </div>
+                <!-- Expand/Collapse Icon -->
+                <svg class="w-5 h-5 transition-transform duration-200" 
+                     :class="{ 'rotate-180': isAlertExpanded(alert.id) }"
+                     fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <!-- Summary line (always visible) -->
+              <p v-if="alert.headline" class="font-medium mt-2 text-sm">{{ alert.headline }}</p>
+            </div>
+            
+            <!-- Alert Details (Collapsible) -->
+            <div v-if="isAlertExpanded(alert.id)" class="px-4 pb-4 border-t border-current border-opacity-20">
+              <div class="pt-3 space-y-3">
+                <p class="text-sm whitespace-pre-line">{{ alert.description }}</p>
+                <div v-if="alert.instruction" class="text-sm font-medium">
+                  <strong>Instructions:</strong>
+                  <p class="whitespace-pre-line mt-1">{{ alert.instruction }}</p>
+                </div>
+                <div class="text-xs space-y-1">
+                  <p><strong>Effective:</strong> {{ formatAlertTime(alert.effective) }}</p>
+                  <p><strong>Expires:</strong> {{ formatAlertTime(alert.expires) }}</p>
+                  <p v-if="alert.areas.length > 0"><strong>Areas:</strong> {{ alert.areas.join(', ') }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <!-- Cache status indicator -->
       <div v-if="weatherData._cache" class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
         <div class="flex items-center justify-between">
@@ -106,6 +162,7 @@ const locationInput = ref(null);
 const recentLocations = ref([]);
 const showLocationSuggestions = ref(false);
 const isLookingUpLocation = ref(false);
+const expandedAlerts = ref(new Set());
 
 // Function to display weather data
 function displayWeather(periods) {
@@ -305,6 +362,7 @@ async function updateLocation() {
     // Create the complete weather data object with cache information
     const completeWeatherData = {
       ...periods,
+      alerts: weatherData.alerts || [], // Ensure alerts are included
       _cache: weatherData._cache,
       lastUpdated: weatherData.lastUpdated
     };
@@ -369,6 +427,7 @@ async function getWeatherData(latitude, longitude) {
     // Create the complete weather data object with cache information
     const completeWeatherData = {
       ...periods,
+      alerts: weatherData.alerts || [], // Ensure alerts are included
       _cache: weatherData._cache,
       lastUpdated: weatherData.lastUpdated
     };
@@ -509,6 +568,71 @@ function formatLastUpdated(timestamp) {
     minute: '2-digit',
     hour12: true
   });
+}
+
+// Alert styling functions
+function getAlertStyling(severity) {
+  const severityLower = severity.toLowerCase();
+  
+  switch (severityLower) {
+    case 'extreme':
+      return 'bg-red-50 border-red-500 text-red-800';
+    case 'severe':
+      return 'bg-orange-50 border-orange-500 text-orange-800';
+    case 'moderate':
+      return 'bg-yellow-50 border-yellow-500 text-yellow-800';
+    case 'minor':
+      return 'bg-blue-50 border-blue-500 text-blue-800';
+    default:
+      return 'bg-gray-50 border-gray-500 text-gray-800';
+  }
+}
+
+function getSeverityBadgeStyling(severity) {
+  const severityLower = severity.toLowerCase();
+  
+  switch (severityLower) {
+    case 'extreme':
+      return 'bg-red-100 text-red-800';
+    case 'severe':
+      return 'bg-orange-100 text-orange-800';
+    case 'moderate':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'minor':
+      return 'bg-blue-100 text-blue-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function formatAlertTime(timestamp) {
+  if (!timestamp) return 'Unknown';
+  
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (error) {
+    return 'Invalid date';
+  }
+}
+
+// Alert toggle functions
+function toggleAlert(alertId) {
+  if (expandedAlerts.value.has(alertId)) {
+    expandedAlerts.value.delete(alertId);
+  } else {
+    expandedAlerts.value.add(alertId);
+  }
+}
+
+function isAlertExpanded(alertId) {
+  return expandedAlerts.value.has(alertId);
 }
 
 

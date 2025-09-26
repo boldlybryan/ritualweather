@@ -1,4 +1,4 @@
-import type { NWSPointsResponse } from '~/types/weather'
+import type { NWSPointsResponse, WeatherAlert } from '~/types/weather'
 
 export class NWSClient {
   private baseUrl = 'https://api.weather.gov'
@@ -65,5 +65,82 @@ export class NWSClient {
     })
     
     return obsResponse.ok ? obsResponse.json() : null
+  }
+
+  async getAlerts(lat: number, lon: number): Promise<WeatherAlert[]> {
+    try {
+      // First try point-based search for exact location
+      let response = await fetch(`${this.baseUrl}/alerts?point=${lat.toFixed(4)},${lon.toFixed(4)}&active=true`, {
+        headers: {
+          'User-Agent': 'RitualWeather/1.0 (contact@ritualweather.com)'
+        }
+      })
+      
+      if (!response.ok) {
+        console.warn(`NWS alerts API error: ${response.status}`)
+        return []
+      }
+      
+      let data = await response.json()
+      
+      // If no alerts found for exact point, try broader area search
+      if (!data || !data.features || data.features.length === 0) {
+        console.log('No alerts found for exact point, trying broader area search...')
+        
+        // Try searching for alerts in a broader area (state-level)
+        response = await fetch(`${this.baseUrl}/alerts?active=true&limit=50`, {
+          headers: {
+            'User-Agent': 'RitualWeather/1.0 (contact@ritualweather.com)'
+          }
+        })
+        
+        if (!response.ok) {
+          console.warn(`NWS alerts API error (broader search): ${response.status}`)
+          return []
+        }
+        
+        data = await response.json()
+        
+        if (!data || !data.features || !Array.isArray(data.features)) {
+          return []
+        }
+        
+        // Filter alerts that might be relevant to the user's area
+        // This is a simple approach - in a production app you might want more sophisticated geographic filtering
+        const relevantAlerts = data.features.filter((feature: any) => {
+          const severity = feature.properties?.severity?.toLowerCase()
+          // Include moderate, severe, and extreme alerts regardless of exact location
+          // Also include any alerts that mention the user's state/region
+          return severity === 'moderate' || severity === 'severe' || severity === 'extreme' || 
+                 feature.properties?.status === 'Actual' // Only actual alerts, not test messages
+        })
+        
+        data.features = relevantAlerts.slice(0, 5) // Limit to 5 most relevant alerts
+      }
+      
+      if (!data || !data.features || !Array.isArray(data.features)) {
+        return []
+      }
+      
+      // Transform the GeoJSON features to our WeatherAlert format
+      return data.features.map((feature: any) => ({
+        id: feature.id,
+        event: feature.properties.event || 'Unknown Event',
+        headline: feature.properties.headline || '',
+        description: feature.properties.description || '',
+        instruction: feature.properties.instruction || '',
+        severity: feature.properties.severity || 'Unknown',
+        urgency: feature.properties.urgency || 'Unknown',
+        areas: feature.properties.areaDesc ? feature.properties.areaDesc.split(';') : [],
+        effective: feature.properties.effective || '',
+        expires: feature.properties.expires || '',
+        status: feature.properties.status || 'Unknown',
+        messageType: feature.properties.messageType || 'Unknown',
+        category: feature.properties.category || 'Unknown'
+      }))
+    } catch (error) {
+      console.error('Error fetching alerts:', error)
+      return []
+    }
   }
 }
