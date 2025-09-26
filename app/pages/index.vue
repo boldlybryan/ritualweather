@@ -127,7 +127,7 @@
       </div>
       
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div v-for="period in weatherData" :key="period.number" 
+        <div v-for="period in weatherData.forecast" :key="period.number" 
              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <h3 class="text-lg font-semibold mb-2">{{ period.name }}</h3>
           <div class="flex items-center mb-2">
@@ -362,7 +362,7 @@ async function updateLocation() {
     
     // Create the complete weather data object with cache information
     const completeWeatherData = {
-      ...periods,
+      forecast: periods, // Keep periods as an array in the forecast property
       alerts: weatherData.alerts || [], // Ensure alerts are included
       _cache: weatherData._cache,
       lastUpdated: weatherData.lastUpdated
@@ -450,7 +450,7 @@ async function fetchFreshWeatherData(latitude, longitude) {
   
   // Create the complete weather data object with cache information
   const completeWeatherData = {
-    ...periods,
+    forecast: periods, // Keep periods as an array in the forecast property
     alerts: weatherData.alerts || [], // Ensure alerts are included
     _cache: weatherData._cache,
     lastUpdated: weatherData.lastUpdated,
