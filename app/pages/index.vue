@@ -115,60 +115,80 @@ function displayWeather(periods) {
 
     // localStorage functions
     function saveLocationToStorage(locationName, coordinates) {
-      const locationData = {
-        name: locationName,
-        lat: coordinates.lat,
-        lng: coordinates.lng,
-        timestamp: Date.now()
-      };
-      
-      // Get existing locations
-      const existing = JSON.parse(localStorage.getItem('recentLocations') || '[]');
-      
-      // Remove if already exists (to avoid duplicates)
-      const filtered = existing.filter(loc => loc.name !== locationName);
-      
-      // Add to beginning and limit to 10 locations
-      const updated = [locationData, ...filtered].slice(0, 10);
-      
-      localStorage.setItem('recentLocations', JSON.stringify(updated));
-      recentLocations.value = updated;
+      if (typeof window === 'undefined') return; // Skip on server-side
+      try {
+        const locationData = {
+          name: locationName,
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          timestamp: Date.now()
+        };
+        
+        // Get existing locations
+        const existing = JSON.parse(localStorage.getItem('recentLocations') || '[]');
+        
+        // Remove if already exists (to avoid duplicates)
+        const filtered = existing.filter(loc => loc.name !== locationName);
+        
+        // Add to beginning and limit to 10 locations
+        const updated = [locationData, ...filtered].slice(0, 10);
+        
+        localStorage.setItem('recentLocations', JSON.stringify(updated));
+        recentLocations.value = updated;
+      } catch (e) {
+        console.error('Error saving location to storage:', e);
+      }
     }
 
     function loadLocationsFromStorage() {
-      const stored = localStorage.getItem('recentLocations');
-      if (stored) {
-        recentLocations.value = JSON.parse(stored);
+      if (typeof window === 'undefined') return; // Skip on server-side
+      try {
+        const stored = localStorage.getItem('recentLocations');
+        if (stored) {
+          recentLocations.value = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error('Error loading locations from storage:', e);
       }
     }
 
     // sessionStorage functions for current session location
     function saveCurrentLocationToSession(locationName, coordinates) {
-      const locationData = {
-        name: locationName,
-        lat: coordinates.lat,
-        lng: coordinates.lng,
-        timestamp: Date.now()
-      };
-      
-      sessionStorage.setItem('currentLocation', JSON.stringify(locationData));
+      if (typeof window === 'undefined') return; // Skip on server-side
+      try {
+        const locationData = {
+          name: locationName,
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          timestamp: Date.now()
+        };
+        
+        sessionStorage.setItem('currentLocation', JSON.stringify(locationData));
+      } catch (e) {
+        console.error('Error saving current location to session:', e);
+      }
     }
 
     function loadCurrentLocationFromSession() {
-      const stored = sessionStorage.getItem('currentLocation');
-      if (stored) {
-        try {
+      if (typeof window === 'undefined') return null; // Skip on server-side
+      try {
+        const stored = sessionStorage.getItem('currentLocation');
+        if (stored) {
           return JSON.parse(stored);
-        } catch (e) {
-          console.error('Error parsing current location from session:', e);
-          return null;
         }
+      } catch (e) {
+        console.error('Error loading current location from session:', e);
       }
       return null;
     }
 
     function clearCurrentLocationFromSession() {
-      sessionStorage.removeItem('currentLocation');
+      if (typeof window === 'undefined') return; // Skip on server-side
+      try {
+        sessionStorage.removeItem('currentLocation');
+      } catch (e) {
+        console.error('Error clearing current location from session:', e);
+      }
     }
 
     // Function to reset to geolocation (clear session and reload)
@@ -382,9 +402,6 @@ function getWeatherIcon(conditions) {
 
 // Initialize app with location and weather
 async function initializeApp() {
-  // Load recent locations from localStorage
-  loadLocationsFromStorage();
-  
   // Set a loading state for city name
   city.value = 'Loading location...';
   
@@ -434,6 +451,9 @@ async function initializeApp() {
 
 // Initialize the app when component mounts (client-side only)
 onMounted(() => {
+  // Load recent locations from localStorage first (synchronous)
+  loadLocationsFromStorage();
+  
   // Check session storage immediately for instant location restore
   const savedLocation = loadCurrentLocationFromSession();
   if (savedLocation) {
