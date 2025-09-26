@@ -28,12 +28,7 @@ export interface WeatherData {
     relativeHumidity?: number
     dewPoint?: number
     windGust?: string
-    heatIndex?: number
-    windChill?: number
     feelsLike?: number
-    barometricPressure?: number
-    visibility?: number
-    skyCover?: number
   }>
   hourlyForecast?: Array<{
     time: string

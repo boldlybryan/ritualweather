@@ -213,19 +213,6 @@
             <p v-if="period.dewPoint"><strong>Dew Point:</strong> {{ period.dewPoint }}°F</p>
             <p><strong>Time:</strong> {{ period.isDaytime ? 'Day' : 'Night' }}</p>
           </div>
-          
-          <!-- Expandable Details -->
-          <div v-if="period.barometricPressure || period.visibility || period.skyCover" class="mt-3 pt-2 border-t border-gray-100">
-            <button @click="togglePeriodDetails(period.number)" 
-                    class="text-xs text-blue-600 hover:text-blue-800 font-medium">
-              {{ expandedPeriods.has(period.number) ? 'Hide Details' : 'Show Details' }}
-            </button>
-            <div v-if="expandedPeriods.has(period.number)" class="mt-2 text-xs text-gray-500 space-y-1">
-              <p v-if="period.barometricPressure"><strong>Pressure:</strong> {{ period.barometricPressure }} mb</p>
-              <p v-if="period.visibility"><strong>Visibility:</strong> {{ period.visibility }} mi</p>
-              <p v-if="period.skyCover"><strong>Sky Cover:</strong> {{ period.skyCover }}%</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -246,7 +233,7 @@ const recentLocations = ref([]);
 const showLocationSuggestions = ref(false);
 const isLookingUpLocation = ref(false);
 const expandedAlerts = ref(new Set());
-const expandedPeriods = ref(new Set());
+;
 const weatherCache = ref(new Map());
 
 // Function to display weather data
@@ -768,14 +755,6 @@ function isAlertExpanded(alertId) {
   return expandedAlerts.value.has(alertId);
 }
 
-// Period details toggle functions
-function togglePeriodDetails(periodNumber) {
-  if (expandedPeriods.value.has(periodNumber)) {
-    expandedPeriods.value.delete(periodNumber);
-  } else {
-    expandedPeriods.value.add(periodNumber);
-  }
-}
 
 
 

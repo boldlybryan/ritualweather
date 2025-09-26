@@ -260,19 +260,9 @@ export class WeatherService {
       const relativeHumidity = period.relativeHumidity?.value
       const dewPoint = period.dewpoint?.value
       const windGust = period.windGust?.value
-      const heatIndex = period.heatIndex?.value
-      const windChill = period.windChill?.value
-      const barometricPressure = period.barometricPressure?.value
-      const visibility = period.visibility?.value
-      const skyCover = period.skyCover
 
       // Calculate "feels like" temperature
       let feelsLike = period.temperature
-      if (heatIndex && period.temperature > 80) {
-        feelsLike = heatIndex
-      } else if (windChill && period.temperature < 50) {
-        feelsLike = windChill
-      }
 
 
       return {
@@ -290,12 +280,7 @@ export class WeatherService {
         relativeHumidity: relativeHumidity ? Math.round(relativeHumidity) : undefined,
         dewPoint: dewPoint ? Math.round(dewPoint) : undefined,
         windGust: windGust ? `${Math.round(windGust)} mph` : undefined,
-        heatIndex: heatIndex ? Math.round(heatIndex) : undefined,
-        windChill: windChill ? Math.round(windChill) : undefined,
-        feelsLike: Math.round(feelsLike),
-        barometricPressure: barometricPressure ? Math.round(barometricPressure) : undefined,
-        visibility: visibility ? Math.round(visibility) : undefined,
-        skyCover: skyCover ? Math.round(skyCover) : undefined
+        feelsLike: Math.round(feelsLike)
       }
     })
   }
