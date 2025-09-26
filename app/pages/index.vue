@@ -93,10 +93,10 @@
   </div>
 </template>
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 // Reactive state
-const city = ref('New York');
+const city = ref('');
 const weatherData = ref(null);
 const loading = ref(false);
 const error = ref(null);
@@ -113,40 +113,79 @@ function displayWeather(periods) {
   loading.value = false;
 }
 
-// localStorage functions
-function saveLocationToStorage(locationName, coordinates) {
-  const locationData = {
-    name: locationName,
-    lat: coordinates.lat,
-    lng: coordinates.lng,
-    timestamp: Date.now()
-  };
-  
-  // Get existing locations
-  const existing = JSON.parse(localStorage.getItem('recentLocations') || '[]');
-  
-  // Remove if already exists (to avoid duplicates)
-  const filtered = existing.filter(loc => loc.name !== locationName);
-  
-  // Add to beginning and limit to 10 locations
-  const updated = [locationData, ...filtered].slice(0, 10);
-  
-  localStorage.setItem('recentLocations', JSON.stringify(updated));
-  recentLocations.value = updated;
-}
+    // localStorage functions
+    function saveLocationToStorage(locationName, coordinates) {
+      const locationData = {
+        name: locationName,
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        timestamp: Date.now()
+      };
+      
+      // Get existing locations
+      const existing = JSON.parse(localStorage.getItem('recentLocations') || '[]');
+      
+      // Remove if already exists (to avoid duplicates)
+      const filtered = existing.filter(loc => loc.name !== locationName);
+      
+      // Add to beginning and limit to 10 locations
+      const updated = [locationData, ...filtered].slice(0, 10);
+      
+      localStorage.setItem('recentLocations', JSON.stringify(updated));
+      recentLocations.value = updated;
+    }
 
-function loadLocationsFromStorage() {
-  const stored = localStorage.getItem('recentLocations');
-  if (stored) {
-    recentLocations.value = JSON.parse(stored);
-  }
-}
+    function loadLocationsFromStorage() {
+      const stored = localStorage.getItem('recentLocations');
+      if (stored) {
+        recentLocations.value = JSON.parse(stored);
+      }
+    }
+
+    // sessionStorage functions for current session location
+    function saveCurrentLocationToSession(locationName, coordinates) {
+      const locationData = {
+        name: locationName,
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        timestamp: Date.now()
+      };
+      
+      sessionStorage.setItem('currentLocation', JSON.stringify(locationData));
+    }
+
+    function loadCurrentLocationFromSession() {
+      const stored = sessionStorage.getItem('currentLocation');
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch (e) {
+          console.error('Error parsing current location from session:', e);
+          return null;
+        }
+      }
+      return null;
+    }
+
+    function clearCurrentLocationFromSession() {
+      sessionStorage.removeItem('currentLocation');
+    }
+
+    // Function to reset to geolocation (clear session and reload)
+    function resetToGeolocation() {
+      clearCurrentLocationFromSession();
+      // Reload the page to trigger geolocation again
+      window.location.reload();
+    }
 
 async function selectRecentLocation(location) {
   city.value = location.name;
   
   // Update the location in localStorage (move to top of recent list)
   saveLocationToStorage(location.name, { lat: location.lat, lng: location.lng });
+  
+  // Save current location to session storage
+  saveCurrentLocationToSession(location.name, { lat: location.lat, lng: location.lng });
   
   // Get weather data for the selected location
   await getWeatherData(location.lat, location.lng);
@@ -222,6 +261,12 @@ async function updateLocation() {
       lng: weatherData.coordinates[1] 
     });
     
+    // Save current location to session storage
+    saveCurrentLocationToSession(weatherData.location, { 
+      lat: weatherData.coordinates[0], 
+      lng: weatherData.coordinates[1] 
+    });
+    
     // Transform and display the weather data
     const periods = weatherData.forecast.map((period, index) => ({
       number: index + 1,
@@ -280,6 +325,12 @@ async function getWeatherData(latitude, longitude) {
       lng: weatherData.coordinates[1] 
     });
     
+    // Save current location to session storage
+    saveCurrentLocationToSession(weatherData.location, { 
+      lat: weatherData.coordinates[0], 
+      lng: weatherData.coordinates[1] 
+    });
+    
     // Transform the weather data to match the expected format
     const periods = weatherData.forecast.map((period, index) => ({
       number: index + 1,
@@ -334,6 +385,9 @@ async function initializeApp() {
   // Load recent locations from localStorage
   loadLocationsFromStorage();
   
+  // Set a loading state for city name
+  city.value = 'Loading location...';
+  
   // Try to get user's current location
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
@@ -355,6 +409,7 @@ async function initializeApp() {
           await getWeatherData(location.latitude, location.longitude);
         } else {
           // Final fallback - use a default location
+          city.value = 'New York'; // Set fallback city name
           await getWeatherData(40.7128, -74.0060); // NYC coordinates
         }
       },
@@ -370,13 +425,28 @@ async function initializeApp() {
     if (location) {
       await getWeatherData(location.latitude, location.longitude);
     } else {
+      // Final fallback - use a default location
+      city.value = 'New York'; // Set fallback city name
       await getWeatherData(40.7128, -74.0060);
     }
   }
 }
 
-// Initialize the app
-initializeApp();
+// Initialize the app when component mounts (client-side only)
+onMounted(() => {
+  // Check session storage immediately for instant location restore
+  const savedLocation = loadCurrentLocationFromSession();
+  if (savedLocation) {
+    console.log('Instantly restoring location from session:', savedLocation.name);
+    city.value = savedLocation.name;
+    // Load weather data asynchronously
+    getWeatherData(savedLocation.lat, savedLocation.lng);
+    return;
+  }
+  
+  // If no saved location, proceed with normal initialization
+  initializeApp();
+});
 
 async function getVisitorLocation() {
     try {
