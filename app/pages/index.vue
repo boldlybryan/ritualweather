@@ -56,7 +56,12 @@
               <p class="text-sm text-gray-600">{{ period.shortForecast }}</p>
             </div>
           </div>
-          <p class="text-sm text-gray-700">{{ period.detailedForecast }}</p>
+          <p class="text-sm text-gray-700 mb-2">{{ period.detailedForecast }}</p>
+          <div class="text-xs text-gray-500 space-y-1">
+            <p><strong>Wind:</strong> {{ period.windSpeed }} {{ period.windDirection }}</p>
+            <p><strong>Precipitation:</strong> {{ period.probabilityOfPrecipitation }}%</p>
+            <p><strong>Time:</strong> {{ period.isDaytime ? 'Day' : 'Night' }}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -174,23 +179,41 @@ async function updateLocation() {
   isLookingUpLocation.value = true;
   
   try {
-    // Try to geocode the location with improved logic
-    const coordinates = await geocodeLocation(locationQuery);
-    if (coordinates) {
-      // Get a better display name for the location
-      const displayName = await getLocationDisplayName(coordinates.lat, coordinates.lng, locationQuery);
-      city.value = displayName;
-      
-      // Save to localStorage
-      saveLocationToStorage(displayName, coordinates);
-      
-      // Get weather data
-      await getWeatherData(coordinates.lat, coordinates.lng);
-    } else {
-      error.value = 'Location not found. Please try a different city name.';
-      // Revert to previous city name on error
-      city.value = recentLocations.value.length > 0 ? recentLocations.value[0].name : 'New York';
-    }
+    // Use our new weather service for search-based queries
+    const weatherData = await $fetch('/api/weather', {
+      method: 'POST',
+      body: {
+        type: 'search',
+        query: locationQuery
+      }
+    });
+    
+    // Update city name with the normalized location from the service
+    city.value = weatherData.location;
+    
+    // Save to localStorage using the coordinates from the weather data
+    saveLocationToStorage(weatherData.location, { 
+      lat: weatherData.coordinates[0], 
+      lng: weatherData.coordinates[1] 
+    });
+    
+    // Transform and display the weather data
+    const periods = weatherData.forecast.map((period, index) => ({
+      number: index + 1,
+      name: period.time, // Use the NWS period name (Today, Tonight, Tomorrow, etc.)
+      temperature: period.temperature,
+      temperatureUnit: period.temperatureUnit,
+      shortForecast: period.conditions,
+      detailedForecast: period.detailedForecast,
+      icon: period.icon, // Use the NWS icon directly
+      isDaytime: period.isDaytime,
+      windSpeed: period.windSpeed,
+      windDirection: period.windDirection,
+      probabilityOfPrecipitation: period.probabilityOfPrecipitation
+    }));
+    
+    displayWeather(periods);
+    
   } catch (err) {
     error.value = `Error finding location: ${err.message}`;
     // Revert to previous city name on error
@@ -200,105 +223,70 @@ async function updateLocation() {
   }
 }
 
-// Improved geocoding function with better error handling and results
-async function geocodeLocation(query) {
-  try {
-    // Using OpenStreetMap Nominatim API with improved parameters
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&extratags=1`,
-      {
-        headers: {
-          'User-Agent': 'RitualWeather/1.0' // Required by Nominatim
-        }
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Geocoding service error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data && data.length > 0) {
-      // Prefer results with higher importance scores and better address details
-      const bestResult = data.reduce((best, current) => {
-        const currentScore = (current.importance || 0) + (current.address ? 0.1 : 0);
-        const bestScore = (best.importance || 0) + (best.address ? 0.1 : 0);
-        return currentScore > bestScore ? current : best;
-      });
-      
-      return {
-        lat: parseFloat(bestResult.lat),
-        lng: parseFloat(bestResult.lon),
-        displayName: bestResult.display_name,
-        address: bestResult.address
-      };
-    }
-    return null;
-  } catch (err) {
-    console.error('Geocoding error:', err);
-    throw new Error('Failed to find location. Please check your internet connection and try again.');
-  }
-}
+// Note: Geocoding is now handled by our weather service
 
-// Reverse geocoding to get a better display name
-async function getLocationDisplayName(lat, lng, originalQuery) {
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-      {
-        headers: {
-          'User-Agent': 'RitualWeather/1.0'
-        }
-      }
-    );
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.address) {
-        const addr = data.address;
-        // Create a nice display name
-        if (addr.city || addr.town || addr.village) {
-          const city = addr.city || addr.town || addr.village;
-          const state = addr.state || addr.region;
-          const country = addr.country;
-          return state ? `${city}, ${state}` : `${city}, ${country}`;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Reverse geocoding failed:', err);
-  }
-  
-  // Fallback to original query
-  return originalQuery;
-}
-
-// Function to get weather data
+// Function to get weather data using our new weather service
 async function getWeatherData(latitude, longitude) {
   try {
     loading.value = true;
     error.value = null;
     
-    // Step 1: Get grid info
-    const pointsResponse = await fetch(`https://api.weather.gov/points/${latitude},${longitude}`);
-    if (!pointsResponse.ok) {
-      throw new Error('Failed to get location data');
-    }
-    const pointsData = await pointsResponse.json();
+    const weatherData = await $fetch('/api/weather', {
+      method: 'POST',
+      body: {
+        type: 'coordinates',
+        coordinates: [latitude, longitude]
+      }
+    });
     
-    // Step 2: Get forecast
-    const forecastUrl = pointsData.properties.forecast;
-    const forecastResponse = await fetch(forecastUrl);
-    if (!forecastResponse.ok) {
-      throw new Error('Failed to get forecast data');
-    }
-    const forecast = await forecastResponse.json();
+    // Update city name with the normalized location from the service
+    city.value = weatherData.location;
     
-    displayWeather(forecast.properties.periods);
+    // Save to localStorage using the coordinates from the weather data
+    saveLocationToStorage(weatherData.location, { 
+      lat: weatherData.coordinates[0], 
+      lng: weatherData.coordinates[1] 
+    });
+    
+    // Transform the weather data to match the expected format
+    const periods = weatherData.forecast.map((period, index) => ({
+      number: index + 1,
+      name: period.time, // Use the NWS period name (Today, Tonight, Tomorrow, etc.)
+      temperature: period.temperature,
+      temperatureUnit: period.temperatureUnit,
+      shortForecast: period.conditions,
+      detailedForecast: period.detailedForecast,
+      icon: period.icon, // Use the NWS icon directly
+      isDaytime: period.isDaytime,
+      windSpeed: period.windSpeed,
+      windDirection: period.windDirection,
+      probabilityOfPrecipitation: period.probabilityOfPrecipitation
+    }));
+    
+    displayWeather(periods);
   } catch (err) {
     error.value = `Error loading weather: ${err.message}`;
     loading.value = false;
+  }
+}
+
+// Helper function to get weather icons based on conditions
+function getWeatherIcon(conditions) {
+  const condition = conditions.toLowerCase();
+  if (condition.includes('sunny') || condition.includes('clear')) {
+    return 'https://api.weather.gov/icons/land/day/skc?size=medium';
+  } else if (condition.includes('cloudy') || condition.includes('overcast')) {
+    return 'https://api.weather.gov/icons/land/day/ovc?size=medium';
+  } else if (condition.includes('rain') || condition.includes('shower')) {
+    return 'https://api.weather.gov/icons/land/day/ra?size=medium';
+  } else if (condition.includes('snow')) {
+    return 'https://api.weather.gov/icons/land/day/snw?size=medium';
+  } else if (condition.includes('thunderstorm') || condition.includes('storm')) {
+    return 'https://api.weather.gov/icons/land/day/tsra?size=medium';
+  } else if (condition.includes('fog') || condition.includes('mist')) {
+    return 'https://api.weather.gov/icons/land/day/fg?size=medium';
+  } else {
+    return 'https://api.weather.gov/icons/land/day/sct?size=medium'; // Partly cloudy default
   }
 }
 
@@ -315,14 +303,7 @@ async function initializeApp() {
         const lon = position.coords.longitude;
         console.log(`Precise location: ${lat}, ${lon}`);
         
-        // Get a better display name for the coordinates
-        const displayName = await getLocationDisplayName(lat, lon, `${lat}, ${lon}`);
-        city.value = displayName;
-        
-        // Save to localStorage
-        saveLocationToStorage(displayName, { lat, lng: lon });
-        
-        // Get weather data for this location
+        // Get weather data for this location (this will also get the proper display name)
         await getWeatherData(lat, lon);
       },
       async function(error) {
@@ -331,17 +312,10 @@ async function initializeApp() {
         // Try to get location from IP
         const location = await getVisitorLocation();
         if (location) {
-          const displayName = `${location.city}, ${location.region}`;
-          city.value = displayName;
-          
-          // Save to localStorage
-          saveLocationToStorage(displayName, { lat: location.latitude, lng: location.longitude });
-          
-          // Get weather data for fallback location
+          // Get weather data for fallback location (this will set the proper city name)
           await getWeatherData(location.latitude, location.longitude);
         } else {
           // Final fallback - use a default location
-          city.value = 'New York, NY';
           await getWeatherData(40.7128, -74.0060); // NYC coordinates
         }
       },
@@ -355,11 +329,8 @@ async function initializeApp() {
     // Browser doesn't support geolocation
     const location = await getVisitorLocation();
     if (location) {
-      const displayName = `${location.city}, ${location.region}`;
-      city.value = displayName;
       await getWeatherData(location.latitude, location.longitude);
     } else {
-      city.value = 'New York, NY';
       await getWeatherData(40.7128, -74.0060);
     }
   }
