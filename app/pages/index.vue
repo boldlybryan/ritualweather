@@ -146,33 +146,33 @@
       <div v-if="weatherData.current" class="mb-6">
         <h2 class="text-xl font-semibold mb-3">Current Conditions</h2>
         <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="text-center">
-              <div class="text-3xl font-bold text-blue-600">{{ weatherData.current.temperature }}°F</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="">
+              <div class="text-3xl font-bold">{{ weatherData.current.temperature }}°F</div>
               <div class="text-sm text-gray-600">Temperature</div>
             </div>
-            <div v-if="weatherData.current.feelsLike" class="text-center">
-              <div class="text-2xl font-semibold text-orange-600">{{ weatherData.current.feelsLike }}°F</div>
+            <div v-if="weatherData.current.feelsLike" class="">
+              <div class="text-3xl font-bold">{{ weatherData.current.feelsLike }}°F</div>
               <div class="text-sm text-gray-600">Feels Like</div>
             </div>
-            <div v-if="weatherData.current.humidity" class="text-center">
-              <div class="text-2xl font-semibold text-green-600">{{ Math.round(weatherData.current.humidity) }}%</div>
+            <div v-if="weatherData.current.humidity" class="">
+              <div class="text-3xl font-bold">{{ Math.round(weatherData.current.humidity) }}%</div>
               <div class="text-sm text-gray-600">Humidity</div>
             </div>
-            <div v-if="weatherData.current.dewPoint" class="text-center">
-              <div class="text-2xl font-semibold text-purple-600">{{ weatherData.current.dewPoint }}°F</div>
+            <div v-if="weatherData.current.dewPoint" class="">
+              <div class="text-3xl font-bold">{{ weatherData.current.dewPoint }}°F</div>
               <div class="text-sm text-gray-600">Dew Point</div>
             </div>
           </div>
           <div v-if="weatherData.current.pressure || weatherData.current.visibility || weatherData.current.windGust" class="mt-4 pt-4 border-t border-gray-200">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div v-if="weatherData.current.pressure" class="text-center">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div v-if="weatherData.current.pressure" class="">
                 <span class="font-medium">Pressure:</span> {{ weatherData.current.pressure.toFixed(2) }} in
               </div>
-              <div v-if="weatherData.current.visibility" class="text-center">
+              <div v-if="weatherData.current.visibility" class="">
                 <span class="font-medium">Visibility:</span> {{ weatherData.current.visibility.toFixed(1) }} mi
               </div>
-              <div v-if="weatherData.current.windGust" class="text-center">
+              <div v-if="weatherData.current.windGust" class="">
                 <span class="font-medium">Wind Gust:</span> {{ weatherData.current.windGust }} mph
               </div>
             </div>
