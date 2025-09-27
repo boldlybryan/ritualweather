@@ -156,7 +156,7 @@
               <div class="text-sm text-gray-600">Feels Like</div>
             </div>
             <div v-if="weatherData.current.humidity" class="text-center">
-              <div class="text-2xl font-semibold text-green-600">{{ weatherData.current.humidity }}%</div>
+              <div class="text-2xl font-semibold text-green-600">{{ Math.round(weatherData.current.humidity) }}%</div>
               <div class="text-sm text-gray-600">Humidity</div>
             </div>
             <div v-if="weatherData.current.dewPoint" class="text-center">
@@ -225,7 +225,7 @@
             <p><strong>Wind:</strong> {{ period.windSpeed }} {{ period.windDirection }}</p>
             <p v-if="period.windGust"><strong>Wind Gust:</strong> {{ period.windGust }}</p>
             <p><strong>Precipitation:</strong> {{ period.probabilityOfPrecipitation }}%</p>
-            <p v-if="period.relativeHumidity"><strong>Humidity:</strong> {{ period.relativeHumidity }}%</p>
+            <p v-if="period.relativeHumidity"><strong>Humidity:</strong> {{ Math.round(period.relativeHumidity) }}%</p>
             <p v-if="period.dewPoint"><strong>Dew Point:</strong> {{ period.dewPoint }}°F</p>
             <p><strong>Time:</strong> {{ period.isDaytime ? 'Day' : 'Night' }}</p>
           </div>
