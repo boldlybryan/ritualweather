@@ -33,6 +33,14 @@
       </div>
     </h1>
     
+    <!-- Current time in location's timezone -->
+    <div v-if="currentTimeInLocation" class="text-sm text-gray-600 mb-2">
+      Current time: {{ currentTimeInLocation }}
+    </div>
+    <div v-else-if="weatherData && weatherData.timezone" class="text-sm text-gray-600 mb-2">
+      All times shown in {{ weatherData.timezone }}
+    </div>
+    
     <!-- Loading state -->
     <div v-if="loading" class="mt-4 text-center">
       <p class="text-lg">Loading weather data...</p>
@@ -151,10 +159,10 @@
           <div v-if="weatherData.current.pressure || weatherData.current.visibility || weatherData.current.windGust" class="mt-4 pt-4 border-t border-gray-200">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div v-if="weatherData.current.pressure" class="text-center">
-                <span class="font-medium">Pressure:</span> {{ weatherData.current.pressure }} mb
+                <span class="font-medium">Pressure:</span> {{ weatherData.current.pressure.toFixed(2) }} in
               </div>
               <div v-if="weatherData.current.visibility" class="text-center">
-                <span class="font-medium">Visibility:</span> {{ weatherData.current.visibility }} mi
+                <span class="font-medium">Visibility:</span> {{ weatherData.current.visibility.toFixed(1) }} mi
               </div>
               <div v-if="weatherData.current.windGust" class="text-center">
                 <span class="font-medium">Wind Gust:</span> {{ weatherData.current.windGust }} mph
@@ -219,7 +227,7 @@
   </div>
 </template>
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 
 // Reactive state
 const city = ref('');
@@ -235,6 +243,52 @@ const isLookingUpLocation = ref(false);
 const expandedAlerts = ref(new Set());
 ;
 const weatherCache = ref(new Map());
+
+// Computed property for current time in location's timezone
+const currentTimeInLocation = computed(() => {
+  if (!weatherData.value || !weatherData.value.coordinates) {
+    return null;
+  }
+  
+  const [lat, lon] = weatherData.value.coordinates;
+  const timezone = weatherData.value.timezone;
+  
+  // Get current UTC time
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+  
+  // Calculate timezone offset for the location
+  let timezoneOffset = 0;
+  if (lon >= -125 && lon <= -66.5) {
+    // Continental US
+    if (lon >= -125 && lon <= -115) {
+      timezoneOffset = -8; // Pacific Standard Time
+    } else if (lon >= -115 && lon <= -102) {
+      timezoneOffset = -7; // Mountain Standard Time
+    } else if (lon >= -102 && lon <= -87) {
+      timezoneOffset = -6; // Central Standard Time
+    } else {
+      timezoneOffset = -5; // Eastern Standard Time
+    }
+  }
+  
+  // Adjust for DST (simplified check)
+  const month = now.getMonth();
+  const isDST = month >= 2 && month <= 9; // Rough DST period (March-October)
+  if (isDST) {
+    timezoneOffset += 1;
+  }
+  
+  // Convert UTC to location's local time
+  const localTime = new Date(utcTime + (timezoneOffset * 60 * 60 * 1000));
+  const time = localTime.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${time} ${timezone}`;
+});
 
 // Function to display weather data
 function displayWeather(periods) {
@@ -448,7 +502,10 @@ async function updateLocation() {
       hourlyForecast: weatherData.hourlyForecast, // Include hourly forecast
       alerts: weatherData.alerts || [], // Ensure alerts are included
       _cache: weatherData._cache,
-      lastUpdated: weatherData.lastUpdated
+      lastUpdated: weatherData.lastUpdated,
+      location: weatherData.location,
+      coordinates: weatherData.coordinates,
+      timezone: weatherData.timezone
     };
     
     displayWeather(completeWeatherData);
@@ -549,8 +606,9 @@ async function fetchFreshWeatherData(latitude, longitude) {
     alerts: weatherData.alerts || [], // Ensure alerts are included
     _cache: weatherData._cache,
     lastUpdated: weatherData.lastUpdated,
-    location: weatherData.location,
-    coordinates: weatherData.coordinates
+      location: weatherData.location,
+      coordinates: weatherData.coordinates,
+      timezone: weatherData.timezone
   };
   
   // Cache the data for future use

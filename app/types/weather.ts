@@ -1,6 +1,7 @@
 export interface WeatherData {
   location: string
   coordinates: [number, number]
+  timezone: string
   current: {
     temperature: number
     conditions: string

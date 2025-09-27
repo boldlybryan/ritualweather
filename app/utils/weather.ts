@@ -1,6 +1,7 @@
 import { Redis } from '@upstash/redis'
 import { NWSClient } from './nws'
 import { forwardGeocode, reverseGeocode, normalizeCoordinates } from './geocoding'
+import { getTimezoneFromCoordinates } from './timezone'
 import type { WeatherData, LocationInput } from '~/types/weather'
 
 export class WeatherService {
@@ -161,6 +162,17 @@ export class WeatherService {
     const currentHeatIndex = currentData?.properties?.heatIndex?.value
     const currentWindChill = currentData?.properties?.windChill?.value
 
+    // Convert units to proper display format
+    // Pressure: Pascals to inches of mercury (divide by 100 to get mb, then multiply by 0.02953)
+    const pressureInInches = currentPressure ? (currentPressure / 100) * 0.02953 : undefined
+    // Visibility: meters to miles (divide by 1609.34)
+    const visibilityInMiles = currentVisibility ? currentVisibility / 1609.34 : undefined
+    // Dewpoint: Celsius to Fahrenheit if needed
+    let dewPointInF = currentDewPoint
+    if (currentDewPoint && currentData?.properties?.dewpoint?.unitCode === 'wmoUnit:degC') {
+      dewPointInF = (currentDewPoint * 9/5) + 32
+    }
+
     // Calculate "feels like" temperature
     let feelsLike = currentTemp
     if (currentHeatIndex && currentTemp > 80) {
@@ -169,16 +181,21 @@ export class WeatherService {
       feelsLike = currentWindChill
     }
     
+    // Get timezone information for the location
+    const [lat, lon] = coordinates
+    const timezone = getTimezoneFromCoordinates(lat, lon)
+    
     return {
       location: locationName,
       coordinates,
+      timezone,
       current: {
         temperature: Math.round(currentTemp),
         conditions: currentData?.properties?.textDescription || periods[0]?.shortForecast || 'Unknown',
         humidity: currentHumidity,
-        dewPoint: currentDewPoint ? Math.round(currentDewPoint) : undefined,
-        pressure: currentPressure ? Math.round(currentPressure) : undefined,
-        visibility: currentVisibility ? Math.round(currentVisibility) : undefined,
+        dewPoint: dewPointInF ? Math.round(dewPointInF) : undefined,
+        pressure: pressureInInches ? Math.round(pressureInInches * 100) / 100 : undefined, // Round to 2 decimal places
+        visibility: visibilityInMiles ? Math.round(visibilityInMiles * 10) / 10 : undefined, // Round to 1 decimal place
         windGust: currentWindGust ? Math.round(currentWindGust) : undefined,
         heatIndex: currentHeatIndex ? Math.round(currentHeatIndex) : undefined,
         windChill: currentWindChill ? Math.round(currentWindChill) : undefined,
@@ -218,6 +235,17 @@ export class WeatherService {
       const visibility = period.visibility?.value
       const skyCover = period.skyCover
 
+      // Convert units to proper display format
+      // Pressure: Pascals to inches of mercury (divide by 100 to get mb, then multiply by 0.02953)
+      const pressureInInches = barometricPressure ? (barometricPressure / 100) * 0.02953 : undefined
+      // Visibility: meters to miles (divide by 1609.34)
+      const visibilityInMiles = visibility ? visibility / 1609.34 : undefined
+      // Dewpoint: Celsius to Fahrenheit if needed
+      let dewPointInF = dewPoint
+      if (dewPoint && period.dewpoint?.unitCode === 'wmoUnit:degC') {
+        dewPointInF = (dewPoint * 9/5) + 32
+      }
+
       // Calculate "feels like" temperature
       let feelsLike = period.temperature
       if (heatIndex && period.temperature > 80) {
@@ -227,15 +255,45 @@ export class WeatherService {
       }
 
       // NWS API provides startTime in UTC format
-      // Convert to local time for display
-      const startTime = new Date(period.startTime)
+      // Convert to location's local timezone using same logic as current time
+      const [lat, lon] = coordinates || [0, 0]
+      
+      // Parse the UTC time from NWS
+      const utcDate = new Date(period.startTime)
+      const utcTime = utcDate.getTime() + (utcDate.getTimezoneOffset() * 60000)
+      
+      // Calculate timezone offset for the location
+      let timezoneOffset = 0;
+      if (lon >= -125 && lon <= -66.5) {
+        // Continental US
+        if (lon >= -125 && lon <= -115) {
+          timezoneOffset = -8; // Pacific Standard Time
+        } else if (lon >= -115 && lon <= -102) {
+          timezoneOffset = -7; // Mountain Standard Time
+        } else if (lon >= -102 && lon <= -87) {
+          timezoneOffset = -6; // Central Standard Time
+        } else {
+          timezoneOffset = -5; // Eastern Standard Time
+        }
+      }
+      
+      // Adjust for DST (simplified check)
+      const month = utcDate.getMonth();
+      const isDST = month >= 2 && month <= 9; // Rough DST period (March-October)
+      if (isDST) {
+        timezoneOffset += 1;
+      }
+      
+      // Convert UTC to location's local time
+      const localTime = new Date(utcTime + (timezoneOffset * 60 * 60 * 1000));
+      const time = localTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
       
       return {
-        time: startTime.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit',
-          hour12: true 
-        }),
+        time,
         temperature: period.temperature,
         temperatureUnit: period.temperatureUnit,
         conditions: period.shortForecast,
@@ -245,13 +303,13 @@ export class WeatherService {
         icon: period.icon,
         probabilityOfPrecipitation: period.probabilityOfPrecipitation?.value || 0,
         relativeHumidity: relativeHumidity ? Math.round(relativeHumidity) : undefined,
-        dewPoint: dewPoint ? Math.round(dewPoint) : undefined,
+        dewPoint: dewPointInF ? Math.round(dewPointInF) : undefined,
         windGust: windGust ? `${Math.round(windGust)} mph` : undefined,
         heatIndex: heatIndex ? Math.round(heatIndex) : undefined,
         windChill: windChill ? Math.round(windChill) : undefined,
         feelsLike: Math.round(feelsLike),
-        barometricPressure: barometricPressure ? Math.round(barometricPressure) : undefined,
-        visibility: visibility ? Math.round(visibility) : undefined,
+        barometricPressure: pressureInInches ? Math.round(pressureInInches * 100) / 100 : undefined, // Round to 2 decimal places
+        visibility: visibilityInMiles ? Math.round(visibilityInMiles * 10) / 10 : undefined, // Round to 1 decimal place
         skyCover: skyCover ? Math.round(skyCover) : undefined
       }
     })
@@ -264,6 +322,12 @@ export class WeatherService {
       const relativeHumidity = period.relativeHumidity?.value
       const dewPoint = period.dewpoint?.value
       const windGust = period.windGust?.value
+
+      // Convert dewpoint from Celsius to Fahrenheit if needed
+      let dewPointInF = dewPoint
+      if (dewPoint && period.dewpoint?.unitCode === 'wmoUnit:degC') {
+        dewPointInF = (dewPoint * 9/5) + 32
+      }
 
       // Calculate "feels like" temperature
       let feelsLike = period.temperature
@@ -282,7 +346,7 @@ export class WeatherService {
         icon: period.icon,
         probabilityOfPrecipitation: period.probabilityOfPrecipitation?.value || 0,
         relativeHumidity: relativeHumidity ? Math.round(relativeHumidity) : undefined,
-        dewPoint: dewPoint ? Math.round(dewPoint) : undefined,
+        dewPoint: dewPointInF ? Math.round(dewPointInF) : undefined,
         windGust: windGust ? `${Math.round(windGust)} mph` : undefined,
         feelsLike: Math.round(feelsLike)
       }
