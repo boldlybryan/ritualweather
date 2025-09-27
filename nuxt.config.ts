@@ -12,7 +12,7 @@ export default defineNuxtConfig({
         { rel: 'apple-touch-icon', href: '/icon-192x192.png' }
       ],
       meta: [
-        { name: 'theme-color', content: '#3b82f6' },
+        { name: 'theme-color', content: '#000' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
         { name: 'apple-mobile-web-app-title', content: 'Ritual Weather' }
