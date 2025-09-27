@@ -138,7 +138,7 @@ export class WeatherService {
     const dailyForecasts = this.combineDayNightPeriods(periods)
     
     // Process hourly forecast data if available
-    const hourlyForecasts = hourlyForecastData ? this.processHourlyForecast(hourlyForecastData) : undefined
+    const hourlyForecasts = hourlyForecastData ? this.processHourlyForecast(hourlyForecastData, coordinates) : undefined
     
     // Get current temperature - convert from Celsius to Fahrenheit if needed
     let currentTemp = 0
@@ -197,7 +197,7 @@ export class WeatherService {
   }
   
 
-  private processHourlyForecast(hourlyForecastData: any): any[] {
+  private processHourlyForecast(hourlyForecastData: any, coordinates?: [number, number]): any[] {
     if (!hourlyForecastData?.properties?.periods || !Array.isArray(hourlyForecastData.properties.periods)) {
       return []
     }
@@ -226,8 +226,12 @@ export class WeatherService {
         feelsLike = windChill
       }
 
+      // NWS API provides startTime in UTC format
+      // Convert to local time for display
+      const startTime = new Date(period.startTime)
+      
       return {
-        time: new Date(period.startTime).toLocaleTimeString('en-US', { 
+        time: startTime.toLocaleTimeString('en-US', { 
           hour: 'numeric', 
           minute: '2-digit',
           hour12: true 
