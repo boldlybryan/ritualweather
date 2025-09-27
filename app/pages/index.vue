@@ -23,11 +23,20 @@
           <div class="p-2 text-sm text-gray-600 border-b">Recent locations:</div>
           <div v-for="location in recentLocations" 
                :key="location.timestamp"
-               @mousedown.prevent
-               @click="selectRecentLocation(location)"
-               class="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0">
-            <div class="font-medium">{{ location.name }}</div>
-            <div class="text-sm text-gray-500">{{ new Date(location.timestamp).toLocaleDateString() }}</div>
+               class="p-3 hover:bg-gray-100 border-b last:border-b-0 flex items-center justify-between group">
+            <div @mousedown.prevent @click="selectRecentLocation(location)" class="flex-1 cursor-pointer">
+              <div class="text-md font-medium">{{ location.name }}</div>
+              <div class="text-sm text-gray-500">{{ new Date(location.timestamp).toLocaleDateString() }}</div>
+            </div>
+            <button 
+              @mousedown.prevent 
+              @click="deleteLocationFromStorage(location)"
+              class="ml-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Delete location">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -335,6 +344,29 @@ function displayWeather(periods) {
       }
     }
 
+    function deleteLocationFromStorage(locationToDelete) {
+      if (typeof window === 'undefined') return; // Skip on server-side
+      try {
+        // Get existing locations
+        const existing = JSON.parse(localStorage.getItem('recentLocations') || '[]');
+        
+        // Filter out the location to delete
+        const updated = existing.filter(loc => 
+          loc.name !== locationToDelete.name || 
+          loc.timestamp !== locationToDelete.timestamp
+        );
+        
+        // Update localStorage
+        localStorage.setItem('recentLocations', JSON.stringify(updated));
+        
+        // Update the reactive array
+        recentLocations.value = updated;
+        
+      } catch (e) {
+        console.error('Error deleting location from storage:', e);
+      }
+    }
+
     // sessionStorage functions for current session location
     function saveCurrentLocationToSession(locationName, coordinates) {
       if (typeof window === 'undefined') return; // Skip on server-side
@@ -530,7 +562,6 @@ async function getWeatherData(latitude, longitude) {
     // Check client-side cache first
     const cachedData = getCachedWeather(latitude, longitude);
     if (cachedData) {
-      console.log('Using client-side cached weather data for instant display');
       city.value = cachedData.location;
       displayWeather(cachedData);
       loading.value = false;
@@ -648,13 +679,11 @@ async function initializeApp() {
       async function(position) {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
-        console.log(`Precise location: ${lat}, ${lon}`);
         
         // Get weather data for this location (this will also get the proper display name)
         await getWeatherData(lat, lon);
       },
       async function(error) {
-        console.log("User denied geolocation or error occurred:", error);
         
         // Try to get location from IP
         const location = await getVisitorLocation();
@@ -694,7 +723,6 @@ onMounted(() => {
   // Check session storage immediately for instant location restore
   const savedLocation = loadCurrentLocationFromSession();
   if (savedLocation) {
-    console.log('Instantly restoring location from session:', savedLocation.name);
     city.value = savedLocation.name;
     // Load weather data asynchronously
     getWeatherData(savedLocation.lat, savedLocation.lng);
@@ -719,7 +747,6 @@ async function getVisitorLocation() {
             longitude: data.longitude
         };
     } catch (error) {
-        console.log('Geolocation failed:', error);
         return null;
     }
 }
@@ -830,7 +857,6 @@ function getCachedWeather(lat, lng) {
     const maxAge = 5 * 60 * 1000; // 5 minutes
     
     if (age < maxAge) {
-      console.log('Using client-side cached weather data');
       return cached.data;
     } else {
       // Remove expired cache
