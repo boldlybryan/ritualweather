@@ -24,9 +24,8 @@
           <div v-for="location in recentLocations" 
                :key="location.timestamp"
                class="p-3 hover:bg-gray-100 border-b last:border-b-0 flex items-center justify-between group">
-            <div @mousedown.prevent @click="selectRecentLocation(location)" class="flex-1 cursor-pointer">
-              <div class="text-md font-medium">{{ location.name }}</div>
-              <div class="text-sm text-gray-500">{{ new Date(location.timestamp).toLocaleDateString() }}</div>
+            <div @mousedown.prevent @click="selectRecentLocation(location)" class="flex-1 cursor-pointer text-sm font-medium">
+              <div class="">{{ location.name }}</div>
             </div>
             <button 
               @mousedown.prevent 
