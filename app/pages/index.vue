@@ -202,7 +202,7 @@
           </div>
         </div>
       </div>
-      
+      <h2 class="text-xl font-semibold mb-3">The next 7 days</h2>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div v-for="period in weatherData.forecast" :key="period.number" 
              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
