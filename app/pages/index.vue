@@ -2,13 +2,13 @@
   <div class="p-4">
     <div class="text-center">
       <!-- Current time in location's timezone -->
-      <div v-if="currentTimeInLocation" class="text-sm text-gray-600">
+      <div v-if="currentTimeInLocation" class="text-sm text-gray-600 mb-1">
         {{ currentTimeInLocation }}
       </div>
       <h1 class="text-3xl font-semibold">
         <span v-if="!isEditingLocation"
               @click="startEditingLocation"
-              class="font-serif font-semibold tracking-tight cursor-pointer hover:bg-gray-100 py-1 rounded transition-colors">
+              class="font-semibold tracking-tight cursor-pointer hover:bg-gray-100 py-1 rounded transition-colors">
           {{ city }}
         </span>
         <div v-else class="inline-block relative">
@@ -16,7 +16,7 @@
                  @keyup.enter="updateLocation"
                  @keyup.escape="cancelEditing"
                  @blur="handleBlur"
-                 class="font-serif font-semibold tracking-tight text-center border-b-2 border-blue-500 bg-transparent text-3xl focus:outline-none"
+                 class="font-semibold tracking-tight text-center border-b-2 border-blue-500 bg-transparent text-3xl focus:outline-none"
                  placeholder="Enter city name"
                  ref="locationInput">
       
@@ -42,6 +42,10 @@
           </div>
         </div>
       </h1>
+      <div v-if="weatherData && !loading" class="flex flex-col gap-0.5">
+        <div class="text-[4rem] font-bold tracking-tight ml-4 leading-none mt-1">{{ weatherData.current.temperature }}°</div>
+        <div class="text-lg font-semibold">{{ weatherData.current.conditions }}</div>
+      </div>
     </div>
     
     <!-- Loading state -->
@@ -58,13 +62,6 @@
     <div v-if="weatherData && !loading" class="mt-6">
       <!-- Weather Alerts -->
       <div v-if="weatherData.alerts && weatherData.alerts.length > 0" class="mb-6">
-        <h2 class="text-xl font-semibold mb-3 text-red-600">Weather Alerts</h2>
-        <p class="text-sm text-gray-600 mb-3">
-          <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-          </svg>
-          Showing active weather alerts for your area and nearby regions
-        </p>
         <div class="space-y-3">
           <div v-for="alert in weatherData.alerts" :key="alert.id" 
                :class="getAlertStyling(alert.severity)"
@@ -115,37 +112,67 @@
       
       <!-- Current Conditions Card -->
       <div v-if="weatherData.current" class="mb-6">
-        <h2 class="text-xl font-semibold mb-3">Current Conditions</h2>
-        <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="">
-              <div class="text-3xl font-bold">{{ weatherData.current.temperature }}°F</div>
-              <div class="text-sm text-gray-600">Temperature</div>
+        <div class="bg-[rgba(0,0,0,0.03)] border border-[rgba(0,0,0,0.05)] rounded-lg p-4">
+          <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+
+            <!-- Temperature -->
+            <div v-if="weatherData.current.temperature" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Temperature</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.temperature }}°F</div>
             </div>
-            <div v-if="weatherData.current.feelsLike" class="">
-              <div class="text-3xl font-bold">{{ weatherData.current.feelsLike }}°F</div>
-              <div class="text-sm text-gray-600">Feels Like</div>
+            
+            <!-- Humidity -->
+            <div v-if="weatherData.current.humidity" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Humidity</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ Math.round(weatherData.current.humidity) }}%</div>
             </div>
-            <div v-if="weatherData.current.humidity" class="">
-              <div class="text-3xl font-bold">{{ Math.round(weatherData.current.humidity) }}%</div>
-              <div class="text-sm text-gray-600">Humidity</div>
+            
+            <!-- Pressure -->
+            <div v-if="weatherData.current.pressure" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Pressure</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.pressure.toFixed(2) }} in</div>
             </div>
-            <div v-if="weatherData.current.dewPoint" class="">
-              <div class="text-3xl font-bold">{{ weatherData.current.dewPoint }}°F</div>
-              <div class="text-sm text-gray-600">Dew Point</div>
+            
+            <!-- Visibility -->
+            <div v-if="weatherData.current.visibility" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Visibility</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.visibility.toFixed(1) }} mi</div>
             </div>
-          </div>
-          <div v-if="weatherData.current.pressure || weatherData.current.visibility || weatherData.current.windGust" class="mt-4 pt-4 border-t border-gray-200">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-              <div v-if="weatherData.current.pressure" class="">
-                <span class="font-medium">Pressure:</span> {{ weatherData.current.pressure.toFixed(2) }} in
-              </div>
-              <div v-if="weatherData.current.visibility" class="">
-                <span class="font-medium">Visibility:</span> {{ weatherData.current.visibility.toFixed(1) }} mi
-              </div>
-              <div v-if="weatherData.current.windGust" class="">
-                <span class="font-medium">Wind Gust:</span> {{ weatherData.current.windGust }} mph
-              </div>
+            
+            <!-- Wind -->
+            <div v-if="weatherData.current.windSpeed" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Wind</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.windDirection || 'N' }} {{ weatherData.current.windSpeed }} mph</div>
+            </div>
+            
+            <!-- Dewpoint -->
+            <div v-if="weatherData.current.dewPoint" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Dewpoint</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.dewPoint }}°</div>
+            </div>
+            
+            <!-- UV Index -->
+            <div v-if="weatherData.current.uvIndex" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">UV Index</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.uvIndex }}</div>
+            </div>
+            
+            <!-- Sunrise -->
+            <div v-if="weatherData.current.sunrise" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Sunrise</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.sunrise }}</div>
+            </div>
+            
+            <!-- Sunset -->
+            <div v-if="weatherData.current.sunset" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Sunset</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.sunset }}</div>
+            </div>
+            
+            <!-- Moon Phase -->
+            <div v-if="weatherData.current.moonPhase" class="flex flex-col gap-0.5">
+              <div class="text-xs font-medium text-black">Moon</div>
+              <div class="text-xl font-bold text-[rgba(0,0,0,0.9)] tracking-tight">{{ weatherData.current.moonPhase }}</div>
             </div>
           </div>
         </div>
