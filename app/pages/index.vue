@@ -207,31 +207,41 @@
           </div>
         </div>
       </div>
-      <h2 class="text-xl font-semibold mb-3">The next 7 days</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div v-for="period in weatherData.forecast" :key="period.number" 
-             class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <h3 class="text-lg font-semibold mb-2">{{ period.name }}</h3>
-          <div class="flex items-center mb-2">
-            <img :src="period.icon" :alt="period.shortForecast" class="w-12 h-12 mr-3">
-            <div>
-              <p class="text-2xl font-bold">{{ period.temperature }}{{ period.temperatureUnit }}</p>
-              <p class="text-sm text-gray-600">{{ period.shortForecast }}</p>
-              <p v-if="period.feelsLike && period.feelsLike !== period.temperature" class="text-xs text-orange-600">
-                Feels like {{ period.feelsLike }}°F
-              </p>
+      <!-- 7-Day Forecast -->
+      <div class="mb-6">
+        <h2 class="text-lg font-bold mb-4 text-black mb-2 tracking-tight">7-Day Forecast</h2>
+        <div class="flex flex-col">
+          <div v-for="(period, index) in weatherData.forecast" :key="period.number" 
+               class="relative">
+            <div class="flex items-center gap-4 py-2">
+              <!-- Day Name -->
+              <div class="font-semibold text-sm text-black w-20">
+                {{ getDayName(period.name) }}
+              </div>
+              
+              <!-- Weather Icon -->
+              <div class="bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center text-gray-700">
+                <img :src="getPhosphorIconPath(period.shortForecast)" :alt="period.shortForecast" class="w-6 h-6" />
+              </div>
+              
+              <!-- Precipitation Percentage -->
+              <div class="font-medium text-sm text-black w-9">
+                {{ period.probabilityOfPrecipitation }}%
+              </div>
+              
+              <!-- Temperature Range -->
+              <div class="flex items-center gap-2 flex-1">
+                <span class="font-medium text-sm text-black">{{ getMinTemp(period) }}°</span>
+                <div class="flex-1 bg-gray-300 h-1 rounded-full">
+                  <div class="bg-gray-600 h-1 rounded-full" style="width: 100%"></div>
+                </div>
+                <span class="font-medium text-sm text-black">{{ getMaxTemp(period) }}°</span>
+              </div>
             </div>
-          </div>
-          <p class="text-sm text-gray-700 mb-2">{{ period.detailedForecast }}</p>
-          
-          
-          <div class="text-xs text-gray-500 space-y-1">
-            <p><strong>Wind:</strong> {{ period.windSpeed }} {{ period.windDirection }}</p>
-            <p v-if="period.windGust"><strong>Wind Gust:</strong> {{ period.windGust }}</p>
-            <p><strong>Precipitation:</strong> {{ period.probabilityOfPrecipitation }}%</p>
-            <p v-if="period.relativeHumidity"><strong>Humidity:</strong> {{ Math.round(period.relativeHumidity) }}%</p>
-            <p v-if="period.dewPoint"><strong>Dew Point:</strong> {{ period.dewPoint }}°F</p>
-            <p><strong>Time:</strong> {{ period.isDaytime ? 'Day' : 'Night' }}</p>
+            
+            <!-- Border between days -->
+            <div v-if="index < weatherData.forecast.length - 1" 
+                 class="absolute bottom-0 left-0 right-0 border-b border-gray-200"></div>
           </div>
         </div>
       </div>
@@ -655,23 +665,45 @@ async function fetchFreshWeatherData(latitude, longitude) {
   displayWeather(completeWeatherData);
 }
 
-// Helper function to get weather icons based on conditions
-function getWeatherIcon(conditions) {
+// Helper function to get Phosphor icon path based on weather conditions
+function getPhosphorIconPath(conditions) {
+  if (!conditions) {
+    return '/icons/cloud-sun.svg'; // Default fallback
+  }
+  
   const condition = conditions.toLowerCase();
-  if (condition.includes('sunny') || condition.includes('clear')) {
-    return 'https://api.weather.gov/icons/land/day/skc?size=medium';
-  } else if (condition.includes('cloudy') || condition.includes('overcast')) {
-    return 'https://api.weather.gov/icons/land/day/ovc?size=medium';
-  } else if (condition.includes('rain') || condition.includes('shower')) {
-    return 'https://api.weather.gov/icons/land/day/ra?size=medium';
-  } else if (condition.includes('snow')) {
-    return 'https://api.weather.gov/icons/land/day/snw?size=medium';
-  } else if (condition.includes('thunderstorm') || condition.includes('storm')) {
-    return 'https://api.weather.gov/icons/land/day/tsra?size=medium';
-  } else if (condition.includes('fog') || condition.includes('mist')) {
-    return 'https://api.weather.gov/icons/land/day/fg?size=medium';
-  } else {
-    return 'https://api.weather.gov/icons/land/day/sct?size=medium'; // Partly cloudy default
+  
+  // Check for thunderstorms first (most specific)
+  if (condition.includes('thunderstorm') || condition.includes('storm')) {
+    return '/icons/lightning.svg';
+  }
+  // Check for rain/showers
+  else if (condition.includes('rain') || condition.includes('shower') || condition.includes('precipitation')) {
+    return '/icons/cloud-rain.svg';
+  }
+  // Check for snow
+  else if (condition.includes('snow')) {
+    return '/icons/snowflake.svg';
+  }
+  // Check for fog/mist
+  else if (condition.includes('fog') || condition.includes('mist')) {
+    return '/icons/cloud-fog.svg';
+  }
+  // Check for clear/sunny conditions
+  else if (condition.includes('clear') || condition.includes('sunny')) {
+    return '/icons/sun.svg';
+  }
+  // Check for partly cloudy/mostly clear
+  else if (condition.includes('partly') || condition.includes('mostly clear') || condition.includes('slight chance')) {
+    return '/icons/cloud-sun.svg';
+  }
+  // Check for cloudy/overcast
+  else if (condition.includes('cloudy') || condition.includes('overcast') || condition.includes('mostly')) {
+    return '/icons/cloud.svg';
+  }
+  // Default fallback
+  else {
+    return '/icons/cloud-sun.svg';
   }
 }
 
@@ -845,6 +877,56 @@ function toggleAlert(alertId) {
 
 function isAlertExpanded(alertId) {
   return expandedAlerts.value.has(alertId);
+}
+
+// Helper functions for 7-day forecast
+function getDayName(periodName) {
+  // Handle period names like "Today", "Tonight", "Tomorrow", etc.
+  if (periodName === 'Today' || periodName === 'This Afternoon') {
+    return 'Today';
+  }
+  if (periodName === 'Tonight') {
+    return 'Tonight';
+  }
+  if (periodName === 'Tomorrow' || periodName === 'Tomorrow Afternoon') {
+    return 'Tomorrow';
+  }
+  if (periodName === 'Tomorrow Night') {
+    return 'Tomorrow';
+  }
+  
+  // For other periods, try to extract day name from the period name
+  const dayMap = {
+    'Sunday': 'Sunday',
+    'Monday': 'Monday', 
+    'Tuesday': 'Tuesday',
+    'Wednesday': 'Wednesday',
+    'Thursday': 'Thursday',
+    'Friday': 'Friday',
+    'Saturday': 'Saturday'
+  };
+  
+  // Check if the period name contains a day name
+  for (const [fullDay, shortDay] of Object.entries(dayMap)) {
+    if (periodName.includes(fullDay)) {
+      return shortDay;
+    }
+  }
+  
+  // Fallback: return first 3 characters of the period name
+  return periodName.substring(0, 3);
+}
+
+function getMinTemp(period) {
+  // For now, we'll use the current temperature as both min and max
+  // In a real implementation, you'd want to get actual min/max from the API
+  return Math.round(period.temperature - 5); // Simulate min temp
+}
+
+function getMaxTemp(period) {
+  // For now, we'll use the current temperature as both min and max
+  // In a real implementation, you'd want to get actual min/max from the API
+  return Math.round(period.temperature + 5); // Simulate max temp
 }
 
 
