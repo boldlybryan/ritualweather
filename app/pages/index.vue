@@ -180,23 +180,29 @@
       
       <!-- Hourly Forecast Section -->
       <div v-if="weatherData.hourlyForecast && weatherData.hourlyForecast.length > 0" class="mb-6">
-        <h2 class="text-xl font-semibold mb-3">24-Hour Forecast</h2>
+        <h2 class="text-lg font-bold text-black mb-2 tracking-tight">24-Hour Forecast</h2>
         
-        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div class="overflow-x-auto">
-            <div class="flex space-x-4 min-w-max">
-              <div v-for="hour in weatherData.hourlyForecast" :key="hour.time" 
-                   class="flex-shrink-0 text-center p-3 border border-gray-100 rounded-lg min-w-24">
-                <div class="text-sm font-medium text-gray-600 mb-1">{{ hour.time }}</div>
-                <img :src="hour.icon" :alt="hour.conditions" class="w-8 h-8 mx-auto mb-2">
-                <div class="text-lg font-bold">{{ hour.temperature }}°</div>
-                <div class="text-xs text-gray-500 mb-1">{{ hour.conditions }}</div>
-                <div class="text-xs text-blue-600">{{ hour.probabilityOfPrecipitation }}%</div>
-                <div v-if="hour.feelsLike && hour.feelsLike !== hour.temperature" 
-                     class="text-xs text-orange-600 mt-1">
-                  Feels {{ hour.feelsLike }}°
-                </div>
+        <div class="flex gap-2.5 overflow-x-auto">
+          <div v-for="hour in weatherData.hourlyForecast" :key="hour.time" 
+               class=" flex flex-col justify-between bg-[rgba(0,0,0,0.03)] rounded-lg shrink-0 w-[114px] h-[114px] border border-[rgba(0,0,0,0.05)] pt-[10px] pb-1">
+            <!-- Time -->
+            <div class="text-xs font-semibold text-black text-center tracking-tight">
+              {{ hour.time }}
+            </div>
+            
+            <!-- Temperature and Conditions -->
+            <div class="text-center">
+              <div class="text-4xl font-bold text-black tracking-tight leading-none">
+                &nbsp;&nbsp;{{ hour.temperature }}°
               </div>
+              <div class="text-xs font-semibold text-black tracking-tight">
+                {{ hour.conditions }}
+              </div>
+            </div>
+            
+            <!-- Precipitation Percentage -->
+            <div class="text-xs font-medium text-black text-center tracking-tight">
+              {{ hour.probabilityOfPrecipitation }}%
             </div>
           </div>
         </div>
