@@ -1,51 +1,47 @@
 <template>
   <div class="p-4">
-    <h1 class="text-3xl font-semibold">Daily Weather Forecast for 
-      <span v-if="!isEditingLocation" 
-            @click="startEditingLocation" 
-            class="font-serif font-normal italic underline cursor-pointer hover:bg-gray-100 py-1 rounded transition-colors">
-        {{ city }}
-        <span v-if="isLookingUpLocation" class="ml-2 text-sm text-blue-500">(looking up...)</span>
-      </span>
-      <div v-else class="inline-block relative">
-        <input v-model="newLocation" 
-               @keyup.enter="updateLocation" 
-               @keyup.escape="cancelEditing"
-               @blur="handleBlur"
-               class="font-serif font-normal italic border-b-2 border-blue-500 bg-transparent py-1 text-3xl focus:outline-none"
-               placeholder="Enter city name"
-               ref="locationInput">
-        
-        <!-- Recent locations dropdown -->
-        <div v-if="showLocationSuggestions && recentLocations.length > 0" 
-             class="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-64">
-          <div class="p-2 text-sm text-gray-600 border-b">Recent locations:</div>
-          <div v-for="location in recentLocations" 
-               :key="location.timestamp"
-               class="p-3 hover:bg-gray-100 border-b last:border-b-0 flex items-center justify-between group">
-            <div @click="selectRecentLocation(location)" class="flex-1 cursor-pointer">
-              <div class="font-medium">{{ location.name }}</div>
-              <div class="text-sm text-gray-500">{{ new Date(location.timestamp).toLocaleDateString() }}</div>
+    <div class="text-center">
+      <!-- Current time in location's timezone -->
+      <div v-if="currentTimeInLocation" class="text-sm text-gray-600">
+        {{ currentTimeInLocation }}
+      </div>
+      <h1 class="text-3xl font-semibold">
+        <span v-if="!isEditingLocation"
+              @click="startEditingLocation"
+              class="font-serif font-semibold tracking-tight cursor-pointer hover:bg-gray-100 py-1 rounded transition-colors">
+          {{ city }}
+        </span>
+        <div v-else class="inline-block relative">
+          <input v-model="newLocation"
+                 @keyup.enter="updateLocation"
+                 @keyup.escape="cancelEditing"
+                 @blur="handleBlur"
+                 class="font-serif font-semibold tracking-tight text-center border-b-2 border-blue-500 bg-transparent text-3xl focus:outline-none"
+                 placeholder="Enter city name"
+                 ref="locationInput">
+      
+          <!-- Recent locations dropdown -->
+          <div v-if="showLocationSuggestions && recentLocations.length > 0"
+               class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-64">
+            <div class="p-2 text-sm text-gray-600 border-b text-left">Recent locations</div>
+            <div v-for="location in recentLocations"
+                 :key="location.timestamp"
+                 class="p-3 hover:bg-gray-100 border-b last:border-b-0 flex items-center justify-between group">
+              <div @click="selectRecentLocation(location)" class="flex-1 cursor-pointer">
+                <div class="text-base font-semibold text-left">{{ location.name }}</div>
+              </div>
+              <button
+                @click.stop="deleteLocationFromStorage(location)"
+                class="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors touch-manipulation"
+                title="Delete location">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
             </div>
-            <button 
-              @click.stop="deleteLocationFromStorage(location)"
-              class="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors touch-manipulation"
-              title="Delete location">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-              </svg>
-            </button>
           </div>
         </div>
-      </div>
-    </h1>
-    
-    <!-- Current time in location's timezone -->
-    <div v-if="currentTimeInLocation" class="text-sm text-gray-600 mb-2">
-      Current time: {{ currentTimeInLocation }}
-    </div>
-    <div v-else-if="weatherData && weatherData.timezone" class="text-sm text-gray-600 mb-2">
-      All times shown in {{ weatherData.timezone }}
+      </h1>
     </div>
     
     <!-- Loading state -->
@@ -116,30 +112,6 @@
         </div>
       </div>
       
-      <!-- Cache status indicator -->
-      <div v-if="weatherData._cache" class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <div :class="weatherData._cache.isCached ? 'text-green-600' : 'text-blue-600'" class="flex items-center">
-              <svg v-if="weatherData._cache.isCached" class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8z" clip-rule="evenodd"></path>
-              </svg>
-              <svg v-else class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
-              </svg>
-              <span class="text-sm font-medium">
-                {{ weatherData._cache.isCached ? 'Cached Data' : 'Fresh Data' }}
-              </span>
-            </div>
-            <span class="text-xs text-gray-500">
-              {{ weatherData._cache.isCached ? `Updated ${formatCacheAge(weatherData._cache.cacheAge)} ago` : 'Just fetched' }}
-            </span>
-          </div>
-          <div class="text-xs text-gray-500">
-            Last updated: {{ formatLastUpdated(weatherData.lastUpdated) }}
-          </div>
-        </div>
-      </div>
       
       <!-- Current Conditions Card -->
       <div v-if="weatherData.current" class="mb-6">
@@ -229,6 +201,10 @@
             <p><strong>Time:</strong> {{ period.isDaytime ? 'Day' : 'Night' }}</p>
           </div>
         </div>
+      </div>
+      <!-- Cache status indicator -->
+      <div v-if="weatherData._cache" class="mb-10 mt-5 text-sm text-gray-500 text-center">
+        Data last updated: {{ formatLastUpdated(weatherData.lastUpdated) }}
       </div>
     </div>
   </div>
